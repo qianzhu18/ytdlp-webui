@@ -7,14 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request
 
 try:
     import yt_dlp
 except ImportError as exc:
     raise SystemExit("yt-dlp is not installed.") from exc
 
-APP_TITLE = "Zen Downloader"
+APP_TITLE = "Downloader by Qianzhu"
 DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", "/downloads")
 COOKIES_PATH = os.environ.get("COOKIES_PATH", "")
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "2"))
@@ -104,6 +104,7 @@ def worker(job_id):
         options["cookiefile"] = COOKIES_PATH
 
     try:
+        Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
         with yt_dlp.YoutubeDL(options) as ydl:
             try:
                 info = ydl.extract_info(job.url, download=False)
@@ -141,11 +142,14 @@ def start():
     if not urls:
         return jsonify({"error": "No URL"}), 400
 
+    preset = data.get("preset")
+    use_cookies = bool(data.get("use_cookies"))
+
     added = 0
     with jobs_lock:
         for url in urls:
             job_id = uuid.uuid4().hex
-            job = Job(job_id, url, data.get("preset"), data.get("use_cookies"))
+            job = Job(job_id, url, preset, use_cookies)
             jobs[job_id] = job
             executor.submit(worker, job_id)
             added += 1

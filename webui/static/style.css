@@ -8,7 +8,7 @@
   --accent-hover: #1e3b28;
   --accent-light: #e8f5e9;
   --border: #e5e5e5;
-  --radius: 8px;
+  --radius: 12px;
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.02),
     0 2px 4px -1px rgba(0, 0, 0, 0.02);
   --font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
@@ -23,7 +23,7 @@
     --text-main: #e5e5e5;
     --text-sub: #a3a3a3;
     --text-light: #525252;
-    --border: #404040;
+    --border: #383838;
     --accent: #4a8f63;
     --accent-hover: #5db57d;
     --accent-light: #2a352e;
@@ -98,6 +98,15 @@ body {
 .nav-link:hover {
   color: var(--accent);
   border-color: var(--accent);
+}
+
+.profile-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  object-fit: cover;
+  margin-bottom: 16px;
 }
 
 .card {
@@ -257,6 +266,11 @@ textarea:focus {
 .site-footer a:hover {
   background: var(--accent-light);
   color: var(--accent);
+}
+
+.site-footer .hint {
+  opacity: 0.6;
+  margin-top: 6px;
 }
 
 @media (max-width: 600px) {

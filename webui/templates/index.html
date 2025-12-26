@@ -13,15 +13,20 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <div class="shell">
+    <main class="shell">
       <header class="header">
         <div class="brand">
-          <h1>{{ app_title }}</h1>
-          <span class="subtitle">Minimalist Video Downloader</span>
+          <img
+            src="https://imagehost.qianzhu.online/api/rfile/千逐（卡通版）.jpg"
+            class="profile-logo"
+            alt="Qianzhu"
+          />
+          <h1>Downloader by Qianzhu</h1>
+          <span class="subtitle">追求极致简约的本地视频下载工具</span>
         </div>
         <nav>
           <a href="https://blog.qianzhu.me/" target="_blank" class="nav-link">
-            📖 使用教程
+            📖 个人博客
           </a>
         </nav>
       </header>
@@ -44,7 +49,10 @@
             ></textarea>
           </div>
 
-          <div class="field" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div
+            class="field"
+            style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;"
+          >
             <div>
               <label for="preset">下载格式</label>
               <select id="preset" name="preset"></select>
@@ -80,14 +88,12 @@
 
       <footer class="site-footer">
         <p>
-          Designed with <span style="color:#e4572e;">&hearts;</span> by
-          <a href="https://blog.qianzhu.me/" target="_blank">Qianzhu (千逐)</a>
+          Made with 🤍 by
+          <a href="https://blog.qianzhu.me/" target="_blank">千逐 (Qianzhu)</a>
         </p>
-        <p style="opacity: 0.6; margin-top: 6px;">
-          访问博客获取更多 Docker 实用工具与技术分享
-        </p>
+        <p class="hint">关注博客获取更多 Docker 工具与技术分享</p>
       </footer>
-    </div>
+    </main>
 
     <script>
       window.APP_CONFIG = {{ config_json | safe }};

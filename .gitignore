@@ -1,0 +1,18 @@
+# 排除开发文档
+doc/
+*.md.bak
+
+# 排除 Python 运行环境与缓存
+__pycache__/
+*.pyc
+venv/
+.env
+
+# 排除下载产生的临时文件
+downloads/
+*.mp4
+*.part
+*.ytdl
+
+# 排除敏感信息
+cookies.txt
