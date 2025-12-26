@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="${YTDIP_IMAGE:-ytdlp-webui}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker not found. Please install Docker or OrbStack first."
+  exit 1
+fi
+
+ids=$(docker ps --filter "ancestor=${IMAGE}" --format "{{.ID}}")
+if [ -z "$ids" ]; then
+  echo "No running containers found for image: ${IMAGE}"
+  exit 0
+fi
+
+echo "$ids" | xargs docker stop

@@ -3,7 +3,7 @@ const config = window.APP_CONFIG || {};
 const form = document.getElementById("download-form");
 const urlInput = document.getElementById("url");
 const presetSelect = document.getElementById("preset");
-const downloadDirInput = document.getElementById("download-dir");
+const downloadDirEl = document.getElementById("download-dir");
 const useCookiesInput = document.getElementById("use-cookies");
 const cookieHint = document.getElementById("cookie-hint");
 const startButton = document.getElementById("start-btn");
@@ -30,20 +30,19 @@ function initForm() {
   if (config.defaultPreset) {
     presetSelect.value = config.defaultPreset;
   }
-  downloadDirInput.value = config.downloadDir || "/downloads";
+  downloadDirEl.textContent = config.downloadDir || "/downloads";
 
   if (!config.cookiesAvailable) {
     useCookiesInput.checked = false;
     useCookiesInput.disabled = true;
-    cookieHint.textContent =
-      "cookies.txt not mounted. Set COOKIES_PATH to enable.";
+    cookieHint.textContent = "未挂载 cookies.txt，可通过 COOKIES_PATH 启用。";
   } else {
-    cookieHint.textContent = `Using cookies from ${config.cookiesPath}`;
+    cookieHint.textContent = `使用 Cookies: ${config.cookiesPath}`;
   }
 }
 
 function setStatus(text) {
-  statusText.textContent = text || "Idle";
+  statusText.textContent = text || "空闲";
 }
 
 function setProgress(percent) {
@@ -66,7 +65,7 @@ function resetLogs() {
 
 function setRunningState(running) {
   startButton.disabled = running;
-  startButton.textContent = running ? "Downloading..." : "Start Download";
+  startButton.classList.toggle("is-loading", running);
   urlInput.disabled = running;
   presetSelect.disabled = running;
   useCookiesInput.disabled = running || !config.cookiesAvailable;
@@ -89,7 +88,7 @@ async function pollStatus() {
   if (!activeJobId) return;
   const response = await fetch(`/api/status/${activeJobId}?after=${logIndex}`);
   if (!response.ok) {
-    setStatus("Failed to fetch status.");
+    setStatus("获取状态失败");
     stopPolling();
     return;
   }
@@ -103,10 +102,10 @@ async function pollStatus() {
     stopPolling();
     setRunningState(false);
     if (data.success) {
-      setStatus("Done");
+      setStatus("完成");
       refreshFiles();
     } else {
-      setStatus("Failed");
+      setStatus("失败");
       if (data.error) {
         appendLogs([`ERROR: ${data.error}`]);
       }
@@ -151,7 +150,7 @@ function formatDate(timestamp) {
 function renderFiles(files) {
   if (!files || files.length === 0) {
     filesList.innerHTML =
-      '<div class="file-item"><div class="file-meta">No files yet.</div></div>';
+      '<div class="file-item"><div class="file-meta">暂无文件</div></div>';
     return;
   }
   filesList.innerHTML = "";
@@ -173,7 +172,7 @@ function renderFiles(files) {
 
     const link = document.createElement("a");
     link.href = `/download/${encodeURIComponent(file.name)}`;
-    link.textContent = "Download";
+    link.textContent = "下载";
     link.setAttribute("download", file.name);
 
     item.appendChild(meta);
@@ -196,12 +195,12 @@ form.addEventListener("submit", async (event) => {
   if (activeJobId) return;
   const url = urlInput.value.trim();
   if (!url) {
-    setStatus("Please paste a URL.");
+    setStatus("请输入链接");
     return;
   }
   resetLogs();
   setProgress(0);
-  setStatus("Starting...");
+  setStatus("准备开始...");
   try {
     const jobId = await startDownload({
       url,
@@ -210,7 +209,7 @@ form.addEventListener("submit", async (event) => {
     });
     startPolling(jobId);
   } catch (error) {
-    setStatus(error.message);
+    setStatus(error.message || "启动失败");
   }
 });
 

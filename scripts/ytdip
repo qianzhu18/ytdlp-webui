@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="${YTDIP_IMAGE:-ytdlp-webui}"
+PORT="${YTDIP_PORT:-8080}"
+DOWNLOAD_DIR="${YTDIP_DOWNLOAD_DIR:-$HOME/Downloads}"
+COOKIES_PATH="${YTDIP_COOKIES_PATH:-}"
+REPO_DIR="${YTDIP_REPO_DIR:-/Users/mac/Downloads/code/油管视频下载}"
+
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker not found. Please install Docker or OrbStack first."
+  exit 1
+fi
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  if [ ! -f "$REPO_DIR/Dockerfile" ]; then
+    echo "Image '$IMAGE' not found, and Dockerfile missing at: $REPO_DIR"
+    echo "Set YTDIP_REPO_DIR to your repo path, then retry."
+    exit 1
+  fi
+  echo "Building image '$IMAGE'..."
+  docker build -t "$IMAGE" "$REPO_DIR"
+fi
+
+run_args=(--rm -it -p "${PORT}:8080" -v "${DOWNLOAD_DIR}:/downloads")
+if [ -n "$COOKIES_PATH" ]; then
+  run_args+=(-v "${COOKIES_PATH}:/cookies.txt:ro" -e COOKIES_PATH=/cookies.txt)
+fi
+
+echo "Starting $IMAGE on http://localhost:${PORT}"
+exec docker run "${run_args[@]}" "$IMAGE"

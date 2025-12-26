@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="${YTDIP_PORT:-8080}"
+
+if command -v open >/dev/null 2>&1; then
+  open "http://localhost:${PORT}"
+  exit 0
+fi
+
+echo "Open this URL in your browser: http://localhost:${PORT}"

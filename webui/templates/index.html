@@ -1,106 +1,107 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
+    <meta name="theme-color" content="#fafaf9" />
     <title>{{ app_title }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <div class="ambient">
-      <div class="glow glow-one"></div>
-      <div class="glow glow-two"></div>
-      <div class="grid"></div>
-    </div>
-
     <main class="shell">
       <header class="header">
-        <div>
-          <p class="eyebrow">Local Web UI</p>
-          <h1>{{ app_title }}</h1>
-        </div>
+        <span class="eyebrow">Video Downloader</span>
+        <h1>{{ app_title }}</h1>
         <div class="header-meta">
+          <div class="badge">v2.0</div>
           <div class="badge">Docker Ready</div>
-          <div class="badge subtle">Downloads: /downloads</div>
         </div>
       </header>
 
       <section class="card">
         <div class="card-title">
-          <h2>Start a download</h2>
-          <p>Paste a link, choose a preset, and hit Start.</p>
+          <h2>新建任务</h2>
+          <p>输入视频链接，选择格式后开始下载。</p>
         </div>
         <form id="download-form">
-          <label class="field">
-            <span>Video URL</span>
+          <div class="field">
+            <span>视频链接 (URL)</span>
             <input
               type="url"
               name="url"
               id="url"
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="例如: https://www.youtube.com/watch?v=..."
               required
+              autocomplete="off"
             />
-          </label>
-
-          <div class="field-row">
-            <label class="field">
-              <span>Download type</span>
-              <select name="preset" id="preset"></select>
-            </label>
-            <label class="field">
-              <span>Save to</span>
-              <input type="text" id="download-dir" readonly />
-            </label>
           </div>
 
           <div class="field-row">
+            <div class="field">
+              <span>格式选择</span>
+              <select name="preset" id="preset"></select>
+            </div>
+            <div class="field">
+              <span>保存位置</span>
+              <div id="download-dir" class="static-value"></div>
+            </div>
+          </div>
+
+          <div class="field">
             <label class="checkbox">
               <input type="checkbox" id="use-cookies" />
-              <span>Use cookies.txt (avoid 403/limits)</span>
+              <span>使用 Cookies (防止 403 错误)</span>
             </label>
             <span id="cookie-hint" class="hint"></span>
           </div>
 
           <div class="actions">
-            <button type="submit" id="start-btn">Start Download</button>
-            <button type="button" class="ghost" id="clear-btn">Clear</button>
+            <button type="submit" id="start-btn" class="primary">
+              <span class="button-label">开始下载</span>
+              <span class="button-spinner" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="ghost" id="clear-btn">清空</button>
           </div>
         </form>
       </section>
 
       <section class="card status-card">
         <div class="status-header">
-          <div>
-            <h3>Status</h3>
-            <p id="status-text">Idle</p>
+          <div class="card-title">
+            <h2>任务状态</h2>
+            <p>实时查看下载进度与速度。</p>
           </div>
-          <div class="status-actions">
-            <button type="button" class="ghost" id="refresh-files">
-              Refresh Files
-            </button>
-          </div>
+          <span id="status-text" class="status-pill">空闲</span>
         </div>
+
         <div class="progress-wrap">
           <div class="progress-bar" id="progress-bar"></div>
         </div>
-        <div class="logs">
-          <div class="logs-header">
-            <span>Live Log</span>
-            <button type="button" class="ghost small" id="clear-log">
-              Clear Log
-            </button>
+
+        <div class="log-panel">
+          <div class="log-header">
+            <span>运行日志</span>
+            <button type="button" class="text-button" id="clear-log">清除</button>
           </div>
-          <pre id="log-box"></pre>
+          <div class="logs">
+            <pre id="log-box"></pre>
+          </div>
         </div>
       </section>
 
       <section class="card">
-        <div class="card-title">
-          <h2>Downloaded files</h2>
-          <p>Latest files in /downloads. Click to download from the container.</p>
+        <div class="card-title files-title">
+          <h2>已下载文件</h2>
+          <button type="button" class="ghost" id="refresh-files">刷新列表</button>
         </div>
         <div id="files-list" class="files-list"></div>
       </section>
