@@ -7,14 +7,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory
 
 try:
     import yt_dlp
 except ImportError as exc:
-    raise SystemExit("yt-dlp is not installed. Run: pip install yt-dlp") from exc
+    raise SystemExit("yt-dlp is not installed.") from exc
 
-APP_TITLE = "Local Video Downloader"
+APP_TITLE = "Zen Downloader"
 DOWNLOAD_DIR = os.environ.get("DOWNLOAD_DIR", "/downloads")
 COOKIES_PATH = os.environ.get("COOKIES_PATH", "")
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "2"))
@@ -22,27 +22,16 @@ HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", "8080"))
 
 FORMAT_PRESETS = {
-    "Video (Best MP4)": {
+    "Best Video (MP4)": {
+        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+    },
+    "Best Audio (MP3)": {
+        "format": "bestaudio/best",
+        "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3"}],
+    },
+    "4K / High Res": {
         "format": "bestvideo+bestaudio/best",
         "merge_output_format": "mp4",
-    },
-    "Video (4K/High Res)": {
-        "format": "bestvideo[height>1080]+bestaudio/best",
-        "merge_output_format": "mp4",
-    },
-    "Video (1080p MP4)": {
-        "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
-        "merge_output_format": "mp4",
-    },
-    "Audio (MP3 Best)": {
-        "format": "bestaudio/best",
-        "postprocessors": [
-            {
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }
-        ],
     },
 }
 
@@ -54,12 +43,11 @@ class Job:
     preset: str
     use_cookies: bool
     created_at: float = field(default_factory=time.time)
-    progress: float = 0.0
+    title: str = "Fetching info..."
     status: str = "Queued"
+    progress: float = 0.0
     done: bool = False
-    success: bool = False
     error: str | None = None
-    title: str | None = None
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
 
@@ -69,40 +57,19 @@ jobs_lock = threading.Lock()
 executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
 
 
-class JobLogger:
-    def __init__(self, job: Job):
-        self.job = job
-
-    def debug(self, msg):
-        pass
-
-    def info(self, msg):
-        pass
-
-    def warning(self, msg):
-        pass
-
-    def error(self, msg):
-        print(f"[{self.job.job_id}] Error: {msg}")
-
-
-def make_progress_hook(job: Job):
+def progress_hook(job):
     def hook(data):
         if data["status"] == "downloading":
             total = data.get("total_bytes") or data.get("total_bytes_estimate")
             downloaded = data.get("downloaded_bytes")
-
             with job.lock:
-                if total and downloaded:
+                if total:
                     job.progress = (downloaded / total) * 100
-
-                if not job.title and data.get("info_dict"):
-                    job.title = data["info_dict"].get("title")
-
-                percent = data.get("_percent_str", "").strip()
-                speed = data.get("_speed_str", "").strip()
-                job.status = f"Downloading {percent} ({speed})"
-
+                job.status = data.get("_percent_str", "0%").strip() + " " + data.get(
+                    "_speed_str", ""
+                ).strip()
+                if data.get("info_dict"):
+                    job.title = data["info_dict"].get("title", job.title)
         elif data["status"] == "finished":
             with job.lock:
                 job.progress = 100
@@ -111,7 +78,7 @@ def make_progress_hook(job: Job):
     return hook
 
 
-def download_task(job_id: str):
+def worker(job_id):
     job = jobs.get(job_id)
     if not job:
         return
@@ -119,46 +86,42 @@ def download_task(job_id: str):
     with job.lock:
         job.status = "Starting..."
 
-    preset_conf = FORMAT_PRESETS.get(job.preset, FORMAT_PRESETS["Video (Best MP4)"])
+    preset_conf = FORMAT_PRESETS[job.preset]
     options = {
         "format": preset_conf["format"],
         "outtmpl": str(Path(DOWNLOAD_DIR) / "%(title)s.%(ext)s"),
-        "logger": JobLogger(job),
-        "progress_hooks": [make_progress_hook(job)],
-        "ignoreerrors": True,
+        "progress_hooks": [progress_hook(job)],
+        "quiet": True,
         "no_warnings": True,
+        "ignoreerrors": True,
     }
 
-    if preset_conf.get("merge_output_format"):
+    if "merge_output_format" in preset_conf:
         options["merge_output_format"] = preset_conf["merge_output_format"]
-    if preset_conf.get("postprocessors"):
+    if "postprocessors" in preset_conf:
         options["postprocessors"] = preset_conf["postprocessors"]
-
-    if job.use_cookies and COOKIES_PATH and Path(COOKIES_PATH).is_file():
+    if job.use_cookies and COOKIES_PATH:
         options["cookiefile"] = COOKIES_PATH
 
     try:
-        Path(DOWNLOAD_DIR).mkdir(parents=True, exist_ok=True)
         with yt_dlp.YoutubeDL(options) as ydl:
             try:
                 info = ydl.extract_info(job.url, download=False)
                 with job.lock:
-                    job.title = info.get("title", "Unknown Title")
+                    job.title = info.get("title", job.url)
             except Exception:
                 pass
 
             ydl.download([job.url])
 
         with job.lock:
-            job.status = "Completed"
             job.done = True
-            job.success = True
+            job.status = "Done"
             job.progress = 100
     except Exception as exc:
         with job.lock:
-            job.status = "Failed"
             job.done = True
-            job.success = False
+            job.status = "Failed"
             job.error = str(exc)
 
 
@@ -166,76 +129,45 @@ def download_task(job_id: str):
 def index():
     config = {
         "presets": list(FORMAT_PRESETS.keys()),
-        "defaultPreset": list(FORMAT_PRESETS.keys())[0],
+        "defaultPreset": "Best Video (MP4)",
     }
     return render_template("index.html", app_title=APP_TITLE, config_json=json.dumps(config))
 
 
 @app.route("/api/start", methods=["POST"])
-def api_start():
-    data = request.get_json(silent=True) or {}
-    raw_urls = data.get("url", "")
-    preset = data.get("preset", "")
-    use_cookies = bool(data.get("use_cookies"))
+def start():
+    data = request.json or {}
+    urls = [u.strip() for u in data.get("url", "").splitlines() if u.strip()]
+    if not urls:
+        return jsonify({"error": "No URL"}), 400
 
-    url_list = [line.strip() for line in raw_urls.splitlines() if line.strip()]
-
-    if not url_list:
-        return jsonify({"error": "No URL provided"}), 400
-
-    created_ids = []
+    added = 0
     with jobs_lock:
-        for url in url_list:
+        for url in urls:
             job_id = uuid.uuid4().hex
-            job = Job(job_id=job_id, url=url, preset=preset, use_cookies=use_cookies)
+            job = Job(job_id, url, data.get("preset"), data.get("use_cookies"))
             jobs[job_id] = job
-            executor.submit(download_task, job_id)
-            created_ids.append(job_id)
-
-    return jsonify({"message": "Tasks started", "count": len(created_ids)})
+            executor.submit(worker, job_id)
+            added += 1
+    return jsonify({"count": added})
 
 
 @app.route("/api/tasks")
-def api_tasks():
+def tasks():
     with jobs_lock:
-        all_jobs = sorted(jobs.values(), key=lambda x: x.created_at, reverse=True)[:50]
-
-        task_list = []
-        for job in all_jobs:
-            task_list.append(
+        tasks_list = []
+        for job in sorted(jobs.values(), key=lambda x: x.created_at, reverse=True)[:20]:
+            tasks_list.append(
                 {
                     "id": job.job_id,
-                    "url": job.url,
-                    "title": job.title or job.url,
+                    "title": job.title,
                     "status": job.status,
-                    "progress": round(job.progress, 1),
+                    "progress": round(job.progress),
                     "done": job.done,
-                    "success": job.success,
                     "error": job.error,
                 }
             )
-
-    return jsonify({"tasks": task_list})
-
-
-@app.route("/api/files")
-def api_files():
-    base = Path(DOWNLOAD_DIR)
-    if not base.exists():
-        return jsonify({"files": []})
-
-    files = []
-    for item in base.iterdir():
-        if item.is_file() and not item.name.startswith("."):
-            stat = item.stat()
-            files.append({"name": item.name, "size": stat.st_size, "mtime": stat.st_mtime})
-    files.sort(key=lambda x: x["mtime"], reverse=True)
-    return jsonify({"files": files})
-
-
-@app.route("/download/<path:filename>")
-def download_file(filename):
-    return send_from_directory(DOWNLOAD_DIR, filename, as_attachment=True)
+    return jsonify({"tasks": tasks_list})
 
 
 if __name__ == "__main__":

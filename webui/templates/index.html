@@ -2,107 +2,92 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#fafaf9" />
     <title>{{ app_title }}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500;700&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <main class="shell">
+    <div class="shell">
       <header class="header">
-        <span class="eyebrow">Video Downloader</span>
-        <h1>{{ app_title }}</h1>
-        <div class="header-meta">
-          <div class="badge">v2.0</div>
-          <div class="badge">Docker Ready</div>
+        <div class="brand">
+          <h1>{{ app_title }}</h1>
+          <span class="subtitle">Minimalist Video Downloader</span>
         </div>
+        <nav>
+          <a href="https://blog.qianzhu.me/" target="_blank" class="nav-link">
+            📖 使用教程
+          </a>
+        </nav>
       </header>
 
       <section class="card">
-        <div class="card-title">
+        <div class="card-header">
           <h2>新建任务</h2>
-          <p>输入视频链接，选择格式后开始下载。</p>
+          <p>支持 YouTube, Bilibili 等主流平台，支持批量粘贴。</p>
         </div>
+
         <form id="download-form">
           <div class="field">
-            <span>视频链接 (URL)</span>
+            <label for="url">视频链接 (一行一个)</label>
             <textarea
               id="url"
               name="url"
-              placeholder="粘贴视频链接，支持批量下载（一行一个）..."
-              rows="4"
-              style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius); font-family:var(--font-sans); resize:vertical;"
+              rows="3"
+              placeholder="在此粘贴链接..."
+              required
             ></textarea>
           </div>
 
-          <div class="field">
-            <span>格式选择</span>
-            <select name="preset" id="preset"></select>
+          <div class="field" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <label for="preset">下载格式</label>
+              <select id="preset" name="preset"></select>
+            </div>
+            <div style="display: flex; align-items: center; padding-top: 24px;">
+              <input type="checkbox" id="use-cookies" style="width: auto; margin-right: 8px;" />
+              <label for="use-cookies" style="margin: 0; cursor: pointer;">
+                启用 Cookies (会员/限速)
+              </label>
+            </div>
           </div>
 
-          <div class="field">
-            <label class="checkbox">
-              <input type="checkbox" id="use-cookies" />
-              <span>使用 Cookies (防止 403 错误)</span>
-            </label>
-            <span id="cookie-hint" class="hint"></span>
-          </div>
-
-          <div class="actions">
-            <button type="submit" id="start-btn" class="primary">开始下载</button>
-            <button type="button" class="ghost" id="clear-btn">清空</button>
-          </div>
+          <button type="submit" id="start-btn" class="btn-primary">开始下载</button>
         </form>
       </section>
 
-      <section class="card" style="margin-top: 24px;">
-        <div class="card-title">
-          <h2>任务队列</h2>
-        </div>
-        <ul id="task-list" style="list-style:none; padding:0; margin:0;"></ul>
-      </section>
-
-      <section class="card status-card">
-        <div class="status-header">
-          <div class="card-title">
-            <h2>任务状态</h2>
-            <p>实时查看下载进度与速度。</p>
-          </div>
-          <span id="status-text" class="status-pill">空闲</span>
-        </div>
-
-        <div class="progress-wrap">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-
-        <div class="log-panel">
-          <div class="log-header">
-            <span>运行日志</span>
-            <button type="button" class="text-button" id="clear-log">清除</button>
-          </div>
-          <div class="logs">
-            <pre id="log-box"></pre>
-          </div>
-        </div>
-      </section>
-
       <section class="card">
-        <div class="card-title files-title">
-          <h2>已下载文件</h2>
-          <button type="button" class="ghost" id="refresh-files">刷新列表</button>
+        <div
+          class="card-header"
+          style="display: flex; justify-content: space-between; align-items: center;"
+        >
+          <h2>任务队列</h2>
+          <span id="queue-count" style="font-size: 0.8rem; color: var(--text-sub);">
+            0 active
+          </span>
         </div>
-        <div id="files-list" class="files-list"></div>
+        <ul id="task-list" class="task-list">
+          <li style="padding: 20px; text-align: center; color: var(--text-light); font-size: 0.9rem;">
+            暂无下载任务，去添加一个吧 🍃
+          </li>
+        </ul>
       </section>
-    </main>
+
+      <footer class="site-footer">
+        <p>
+          Designed with <span style="color:#e4572e;">&hearts;</span> by
+          <a href="https://blog.qianzhu.me/" target="_blank">Qianzhu (千逐)</a>
+        </p>
+        <p style="opacity: 0.6; margin-top: 6px;">
+          访问博客获取更多 Docker 实用工具与技术分享
+        </p>
+      </footer>
+    </div>
 
     <script>
       window.APP_CONFIG = {{ config_json | safe }};
