@@ -1,0 +1,10 @@
+services:
+  ytdl-webui:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ${HOME}/Downloads:/downloads
+      # - ./cookies.txt:/cookies.txt:ro
+    environment:
+      # - COOKIES_PATH=/cookies.txt

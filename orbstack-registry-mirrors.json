@@ -1,0 +1,9 @@
+{
+  "registry-mirrors": [
+    "https://mirror.ccs.tencentyun.com",
+    "https://docker.mirrors.tuna.tsinghua.edu.cn",
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://hub-mirror.c.163.com",
+    "https://<your-aliyun-mirror-id>.mirror.aliyuncs.com"
+  ]
+}
