@@ -11,9 +11,8 @@
   --radius: 12px;
   --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.02),
     0 2px 4px -1px rgba(0, 0, 0, 0.02);
-  --font-serif: "Noto Serif SC", "Songti SC", "SimSun", serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", sans-serif;
+  --font-serif: "Noto Serif SC", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,13 +41,13 @@ body {
   color: var(--text-main);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  transition: background 0.3s;
+  transition: background 0.3s, color 0.3s;
 }
 
 .shell {
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
-  padding: 60px 20px 40px;
+  padding: 40px 20px;
   display: flex;
   flex-direction: column;
   gap: 32px;
@@ -57,31 +56,25 @@ body {
 .header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: center;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 20px;
+  padding-bottom: 24px;
   gap: 16px;
 }
 
 .brand {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .brand h1 {
   font-family: var(--font-serif);
   font-weight: 700;
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   margin: 0;
   color: var(--text-main);
   letter-spacing: -0.02em;
-}
-
-.brand .subtitle {
-  font-size: 0.9rem;
-  color: var(--accent);
-  font-weight: 500;
-  margin-top: 4px;
 }
 
 .nav-link {
@@ -100,13 +93,12 @@ body {
   border-color: var(--accent);
 }
 
-.profile-logo {
-  width: 56px;
-  height: 56px;
+.profile-avatar {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 2px solid var(--accent);
+  border: 1.5px solid var(--accent);
   object-fit: cover;
-  margin-bottom: 16px;
 }
 
 .card {
@@ -114,7 +106,7 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 24px;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .card-header {
@@ -155,7 +147,7 @@ textarea {
   padding: 10px 12px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-card);
+  background: var(--bg-page);
   color: var(--text-main);
   font-size: 0.95rem;
   font-family: var(--font-sans);
@@ -176,7 +168,7 @@ textarea:focus {
   color: #fff;
   border: none;
   padding: 12px;
-  border-radius: var(--radius);
+  border-radius: 8px;
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
