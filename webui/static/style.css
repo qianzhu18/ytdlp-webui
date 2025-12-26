@@ -1,6 +1,7 @@
 :root {
   --bg-body: #fafaf9;
   --bg-card: #ffffff;
+  --bg-page: #ffffff;
   --ink-primary: #2c2c2c;
   --ink-secondary: #666666;
   --ink-tertiary: #999999;
@@ -135,7 +136,8 @@ form {
 
 input[type="text"],
 input[type="url"],
-select {
+select,
+textarea {
   width: 100%;
   padding: 12px;
   font-size: 1rem;
@@ -148,7 +150,8 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-light);

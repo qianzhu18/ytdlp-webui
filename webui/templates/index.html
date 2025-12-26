@@ -35,25 +35,18 @@
         <form id="download-form">
           <div class="field">
             <span>视频链接 (URL)</span>
-            <input
-              type="url"
-              name="url"
+            <textarea
               id="url"
-              placeholder="例如: https://www.youtube.com/watch?v=..."
-              required
-              autocomplete="off"
-            />
+              name="url"
+              placeholder="粘贴视频链接，支持批量下载（一行一个）..."
+              rows="4"
+              style="width:100%; padding:10px; border:1px solid var(--border); border-radius:var(--radius); font-family:var(--font-sans); resize:vertical;"
+            ></textarea>
           </div>
 
-          <div class="field-row">
-            <div class="field">
-              <span>格式选择</span>
-              <select name="preset" id="preset"></select>
-            </div>
-            <div class="field">
-              <span>保存位置</span>
-              <div id="download-dir" class="static-value"></div>
-            </div>
+          <div class="field">
+            <span>格式选择</span>
+            <select name="preset" id="preset"></select>
           </div>
 
           <div class="field">
@@ -65,13 +58,17 @@
           </div>
 
           <div class="actions">
-            <button type="submit" id="start-btn" class="primary">
-              <span class="button-label">开始下载</span>
-              <span class="button-spinner" aria-hidden="true"></span>
-            </button>
+            <button type="submit" id="start-btn" class="primary">开始下载</button>
             <button type="button" class="ghost" id="clear-btn">清空</button>
           </div>
         </form>
+      </section>
+
+      <section class="card" style="margin-top: 24px;">
+        <div class="card-title">
+          <h2>任务队列</h2>
+        </div>
+        <ul id="task-list" style="list-style:none; padding:0; margin:0;"></ul>
       </section>
 
       <section class="card status-card">
