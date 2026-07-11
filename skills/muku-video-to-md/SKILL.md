@@ -85,6 +85,23 @@ video-downloade capture URL \
 3. 优先用 `*_COOKIES_FROM_BROWSER`
 4. 浏览器方案不稳定时，再回退到 `*_COOKIES_PATH`
 
+如果 macOS 上 `--bilibili-cookies-from-browser chrome` 长时间无输出，而
+`web-access` 已连接到一个已登录的 Chrome，可以从当前 CDP 会话导出只包含 B 站域名的
+Netscape cookie 文件：
+
+```bash
+node ./scripts/export-cdp-cookies.mjs \
+  --domain bilibili.com \
+  --output ./cookies/bilibili.cdp.cookies.txt
+
+video-downloade capture URL \
+  --bilibili-cookies-path ./cookies/bilibili.cdp.cookies.txt \
+  --knowledge --json
+```
+
+导出文件包含登录凭据，必须保持在 `cookies/` 或其他 gitignored 目录，不要回显内容、
+提交到 Git，也不要复制进任务产物目录。
+
 如果任务开始前需要先把默认下载目录、模型或服务地址写好，优先执行：
 
 ```bash
@@ -148,6 +165,12 @@ KNOWLEDGE_DRAFT_MODEL=stepfun/step-3.7-flash
 ## Operational notes
 
 - 不要在命令输出中回显真实密钥或 Cookies 内容
+- 若入口报 `ModuleNotFoundError: No module named 'webui'`，先用
+  `python -m pip show video-downloade` 检查 `Editable project location`。若它指向已迁移或
+  不存在的旧仓库，进入当前 Muku 仓库运行 `./scripts/install-muku-cli`；安装脚本会使用
+  非 editable 安装，避免仓库改名或移动后入口再次失效
+- `.env` 中指向仓库内部的 cookie / prompt 路径如果仍是旧绝对路径，应改为当前路径，
+  或在命令中传入当前 `--*-cookies-path`；不要用 `--skip-cookie-check` 掩盖已过期 cookie
 - YouTube 下载失败时，优先检查 `doctor --json` 里的 `youtube_auth_configured`
 - Bilibili、YouTube、Douyin 建议分开配置 Cookies，避免串用
 - 如果用户说“网页端已经配好了”，仍然建议先跑 `video-downloade config --json`，确认 CLI 与网页看到的是同一份默认配置

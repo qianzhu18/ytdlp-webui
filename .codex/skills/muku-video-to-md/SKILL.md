@@ -71,6 +71,25 @@ video-downloade capture URL --knowledge-prompt-file ./知识库提示词.md --js
 video-downloade audio FILE --cleanup-prompt-file ./角色提示词.md --article-prompt-file ./解析提示词.md --json
 ```
 
+## Browser-cookie fallback
+
+如果 macOS 上 `--bilibili-cookies-from-browser chrome` 长时间无输出，而
+`web-access` 已连接到一个已登录的 Chrome，可以从当前 CDP 会话导出只包含 B 站域名的
+Netscape cookie 文件：
+
+```bash
+node ./scripts/export-cdp-cookies.mjs \
+  --domain bilibili.com \
+  --output ./cookies/bilibili.cdp.cookies.txt
+
+video-downloade capture URL \
+  --bilibili-cookies-path ./cookies/bilibili.cdp.cookies.txt \
+  --knowledge --json
+```
+
+导出文件包含登录凭据，必须保持在 `cookies/` 或其他 gitignored 目录，不要回显内容、
+提交到 Git，也不要复制进任务产物目录。
+
 ## Local text backend
 
 本机清洗稿、解析稿、知识库稿默认都走 OpenRouter：
@@ -100,6 +119,12 @@ KNOWLEDGE_DRAFT_MODEL=stepfun/step-3.7-flash
 ## Operational notes
 
 - 默认配置从仓库根目录 `.env` 读取，不要在命令里回显密钥
+- 若入口报 `ModuleNotFoundError: No module named 'webui'`，先用
+  `python -m pip show video-downloade` 检查 `Editable project location`。若它指向已迁移或
+  不存在的旧仓库，进入当前 Muku 仓库运行 `./scripts/install-muku-cli`；安装脚本会使用
+  非 editable 安装，避免仓库改名或移动后入口再次失效
+- `.env` 中指向仓库内部的 cookie / prompt 路径如果仍是旧绝对路径，应改为当前路径，
+  或在命令中传入当前 `--*-cookies-path`；不要用 `--skip-cookie-check` 掩盖已过期 cookie
 - 如果用户说“网页里已经配过默认目录和模型”，先跑 `video-downloade config --json`，确认 CLI 侧也已经读到同一份配置
 - 先跑 `doctor --json`，检查 `youtube_auth_configured`、`bilibili_auth_configured`、`douyin_auth_configured`
 - YouTube、B 站、抖音受限内容抓取失败时，优先尝试平台级参数：`--youtube-cookies-*` / `--bilibili-cookies-*` / `--douyin-cookies-*`

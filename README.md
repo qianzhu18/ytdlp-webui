@@ -200,6 +200,16 @@ cp .env.example .env
 video-downloade serve --port 5657
 ```
 
+如果需要一个不受仓库改名或移动影响的全局 CLI，使用：
+
+```bash
+./scripts/install-muku-cli
+```
+
+该脚本会把非 editable 的运行副本安装到
+`~/.local/share/muku-video-downloade/venv`，并刷新
+`/opt/homebrew/bin/video-downloade` wrapper。开发环境仍可继续使用 `pip install -e .`。
+
 Windows PowerShell：
 
 ```powershell
