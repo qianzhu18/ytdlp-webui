@@ -26,8 +26,8 @@ python -m webui.cli --help
 建议第一次接入前先跑：
 
 ```bash
-video-downloade doctor --json
-video-downloade config --json
+muku doctor --json
+muku config --json
 ```
 
 ## 最推荐的工作流
@@ -35,7 +35,7 @@ video-downloade config --json
 ### URL -> 逐字稿 + 解析稿 + 知识库稿
 
 ```bash
-video-downloade capture "https://www.bilibili.com/video/BVxxxx" \
+muku capture "https://www.bilibili.com/video/BVxxxx" \
   --knowledge \
   --json
 ```
@@ -43,7 +43,7 @@ video-downloade capture "https://www.bilibili.com/video/BVxxxx" \
 ### 本地音频 -> 逐字稿 + 知识库稿
 
 ```bash
-video-downloade audio "/path/to/file.mp3" \
+muku audio "/path/to/file.mp3" \
   --knowledge \
   --json
 ```
@@ -51,20 +51,20 @@ video-downloade audio "/path/to/file.mp3" \
 ### 已有 sidecar -> 单独补知识库稿
 
 ```bash
-video-downloade knowledge "/path/to/file.mp3" --json
+muku knowledge "/path/to/file.mp3" --json
 ```
 
 ### 批量 URL
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \
   --resume \
   --result-file ./capture.json \
   --json
-cat ./urls.txt | video-downloade capture --stdin --output paths
+cat ./urls.txt | muku capture --stdin --output paths
 ```
 
 ## 命令选择
@@ -83,10 +83,10 @@ cat ./urls.txt | video-downloade capture --stdin --output paths
 
 ```bash
 # 查看当前生效配置
-video-downloade config --json
+muku config --json
 
 # 设置默认下载目录和模型
-video-downloade config \
+muku config \
   --download-dir "/Users/you/Downloads/muku" \
   --transcription-model openai/gpt-audio-mini \
   --cleanup-base-url https://openrouter.ai/api/v1 \
@@ -98,7 +98,7 @@ video-downloade config \
   --json
 
 # Docker 容器里建议写容器内路径
-video-downloade config \
+muku config \
   --download-dir /downloads/default \
   --json
 ```
@@ -126,20 +126,20 @@ video-downloade config \
 
 如果你在写 agent workflow，推荐顺序是：
 
-1. `video-downloade doctor --json`
+1. `muku doctor --json`
 2. `capture --knowledge --json` 或 `audio --knowledge --json`
 3. 必要时再用 `artifacts --json` 反查 sidecar
 
 ## 常用覆盖项
 
 ```bash
-video-downloade capture URL --language zh --json
-video-downloade capture URL --output-dir "/Users/you/Downloads/muku/bilibili" --json
-video-downloade capture URL --transcription-model openai/gpt-audio-mini --json
-video-downloade capture URL --cleanup-model stepfun/step-3.7-flash --article-model stepfun/step-3.7-flash --json
-video-downloade capture URL --knowledge-model stepfun/step-3.7-flash --json
-video-downloade capture URL --knowledge-prompt-file ./知识库提示词.md --json
-video-downloade audio FILE --no-article --knowledge --json
+muku capture URL --language zh --json
+muku capture URL --output-dir "/Users/you/Downloads/muku/bilibili" --json
+muku capture URL --transcription-model openai/gpt-audio-mini --json
+muku capture URL --cleanup-model stepfun/step-3.7-flash --article-model stepfun/step-3.7-flash --json
+muku capture URL --knowledge-model stepfun/step-3.7-flash --json
+muku capture URL --knowledge-prompt-file ./知识库提示词.md --json
+muku audio FILE --no-article --knowledge --json
 ```
 
 ## 断点恢复与高并发
@@ -167,7 +167,7 @@ video-downloade audio FILE --no-article --knowledge --json
 一个更稳的批量模板：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \
@@ -181,7 +181,7 @@ video-downloade capture \
 推荐按平台分开配置登录态，而不是所有平台共用一份全局 cookies：
 
 ```bash
-video-downloade capture URL \
+muku capture URL \
   --youtube-cookies-from-browser chrome \
   --bilibili-cookies-path ./cookies/bilibili.cookies.txt \
   --douyin-cookies-from-browser chrome \
@@ -201,7 +201,7 @@ DOUYIN_COOKIES_PATH=/absolute/path/to/douyin.cookies.txt
 
 1. 目标平台先在浏览器中登录。
 2. 优先尝试 `*_COOKIES_FROM_BROWSER=chrome`。
-3. 执行 `video-downloade doctor --json`。
+3. 执行 `muku doctor --json`。
 4. 确认 `youtube_auth_configured`、`bilibili_auth_configured`、`douyin_auth_configured` 等字段。
 5. 只有浏览器方案不稳定时，再回退到 `*_COOKIES_PATH`。
 
@@ -210,16 +210,16 @@ DOUYIN_COOKIES_PATH=/absolute/path/to/douyin.cookies.txt
 - 下载目录默认只保留最终视频或最终 MP3，以及 sidecar 文稿。
 - 转写前预处理音频会写到系统临时目录，不再在产物目录里额外留下第二个可见 MP3。
 - 只有当你显式设置 `KEEP_TRANSCRIPTION_INPUT=true` 时，才建议保留这类调试输入。
-- `capture` / `download` 的 `--output-dir` 只覆盖当前命令；想改长期默认值，用 `video-downloade config --download-dir ...`
+- `capture` / `download` 的 `--output-dir` 只覆盖当前命令；想改长期默认值，用 `muku config --download-dir ...`
 
 ## 容器里调用 CLI
 
 如果你已经用 Docker 启动服务，也不需要额外装第二套工具：
 
 ```bash
-docker compose exec ytdl-webui video-downloade doctor --json
-docker compose exec ytdl-webui video-downloade config --json
-docker compose exec ytdl-webui video-downloade capture URL --knowledge --json
+docker compose exec ytdl-webui muku doctor --json
+docker compose exec ytdl-webui muku config --json
+docker compose exec ytdl-webui muku capture URL --knowledge --json
 ```
 
 ## Skill 封装
@@ -241,11 +241,12 @@ mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
 cp -R ./skills/muku-video-to-md "${CODEX_HOME:-$HOME/.codex}/skills/muku-video-to-md"
 ```
 
-## 搭配 web-access
+## 搭配 A2W / Kimi / Web-access
 
-如果你的需求不是“已经有视频链接”，而是“先去某个博主主页、合集页、系列页把链接采下来”，推荐搭配 [`web-access`](https://github.com/eze-is/web-access)：
+如果你的需求不是“已经有视频链接”，而是“先去某个博主主页、合集页、系列页把链接采下来”，推荐先用 qianzhu `a2w-skill` 判断采集路径：
 
-- 它适合打开创作者主页、动态页面和需要浏览器登录态的站点，再把链接整理成 `urls.txt`
+- Kimi WebBridge first：适合创作者主页、动态页面、视觉判断和需要浏览器登录态的站点
+- `web-access` fallback：适合普通搜索、静态正文、来源核实和 Kimi 不可用时的浏览器/CDP 路径
 - 本仓库 CLI 负责把 `urls.txt` 批量变成逐字稿、解析稿和知识库 Markdown
 
 推荐 prompt：
@@ -261,7 +262,7 @@ cp -R ./skills/muku-video-to-md "${CODEX_HOME:-$HOME/.codex}/skills/muku-video-t
 然后直接执行：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \

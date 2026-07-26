@@ -6,7 +6,7 @@
 
 把平台上的知识视频，从“刷过就忘”，变成你本地可检索、可连接、可被 AI 持续使用的 Markdown 知识库。
 
-幕库主打 Bilibili、YouTube、Douyin 等知识密度高的平台，同时兼容其他 yt-dlp 支持的站点。它的重点不是做一个“什么都下”的通用下载器，而是把链接、片单、创作者列表和本地音频沉淀为可以长期复用的知识资产。当前项目同时提供 `Web UI + CLI + Docker + Skill` 四套入口。
+幕库主打 Bilibili、YouTube、Douyin 等知识密度高的平台，同时兼容其他 yt-dlp 支持的站点。它的重点不是做一个“什么都下”的通用下载器，而是把链接、片单、创作者列表、本地音频，以及由浏览器型 agent 提取出的网页 Markdown 沉淀为可以长期复用的知识资产。当前项目同时提供 `Web UI + CLI + Docker + Skill` 四套入口。
 
 ## 我该怎么开始
 
@@ -56,8 +56,8 @@ http://localhost:5657
 3. 跑一次 `doctor`
 
 ```bash
-docker compose exec ytdl-webui video-downloade doctor
-docker compose exec ytdl-webui video-downloade doctor --json
+docker compose exec ytdl-webui muku doctor
+docker compose exec ytdl-webui muku doctor --json
 ```
 
 ## 幕库是什么
@@ -87,6 +87,7 @@ docker compose exec ytdl-webui video-downloade doctor --json
 - 单条视频链接在 Web 默认整理为 `逐字稿.md`、`解析稿.md`；需要时可在 Web 显式勾选知识库稿，任务详情里也能直接预览这些产物
 - 批量把 B 站合集、YouTube 系列、抖音分享列表沉淀到本地知识库
 - 把研究型、课程型、访谈型、播客型内容转为 Markdown 资产
+- 把普通网页、公众号、社交长文、飞书 wiki 等资料先由 A2W/Kimi/Web-access 提取为 Markdown，再继续整理进本地知识库
 - 让 AI agent 根据 skill 自动执行 `采集链接 -> 批量入库 -> 返回产物路径`
 - 接入 Obsidian、本地文件夹、全文检索、RAG 或其他 AI 工作流
 
@@ -108,7 +109,7 @@ docker compose exec ytdl-webui video-downloade doctor --json
 建议第一次使用前先跑：
 
 ```bash
-video-downloade doctor --json
+muku doctor --json
 ```
 
 注意：`doctor` 现在会把认证状态拆成 `configured` 和 `verified` 两层。浏览器登录态通常只能算“已配置”，真正的 `verified` 更偏向容器内可见的 `cookies.txt` 或一次真实任务验证；Docker 环境更稳的默认方案仍是挂载平台专用 `cookies.txt`。
@@ -124,7 +125,7 @@ video-downloade doctor --json
 
 - Web UI 默认产出：`xxx - 原始逐字稿.txt`、`xxx - 逐字稿.md`、`xxx - 解析稿.md`、`xxx - 转写信息.json`
 - Web UI 勾选“生成知识库稿”后：会继续产出 `xxx - 知识库.md`
-- CLI 在传入 `--knowledge` 时，或后续单独运行 `video-downloade knowledge` 时，会额外生成 `xxx - 知识库.md`
+- CLI 在传入 `--knowledge` 时，或后续单独运行 `muku knowledge` 时，会额外生成 `xxx - 知识库.md`
 
 文件说明：
 
@@ -174,15 +175,15 @@ http://localhost:5657
 3. 回到双栏工作台左侧发起任务，右侧观察队列与详情，再做一次容器内自检
 
 ```bash
-docker compose exec ytdl-webui video-downloade doctor --json
-docker compose exec ytdl-webui video-downloade config --json
+docker compose exec ytdl-webui muku doctor --json
+docker compose exec ytdl-webui muku config --json
 ```
 
 如果你想直接跑完整的知识库链路：
 
 ```bash
 docker compose exec ytdl-webui \
-  video-downloade capture "https://www.bilibili.com/video/BVxxxx" \
+  muku capture "https://www.bilibili.com/video/BVxxxx" \
   --knowledge \
   --json
 ```
@@ -197,7 +198,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 pip install -e .
 cp .env.example .env
-video-downloade serve --port 5657
+muku serve --port 5657
 ```
 
 如果需要一个不受仓库改名或移动影响的全局 CLI，使用：
@@ -208,7 +209,7 @@ video-downloade serve --port 5657
 
 该脚本会把非 editable 的运行副本安装到
 `~/.local/share/muku-video-downloade/venv`，并刷新
-`/opt/homebrew/bin/video-downloade` wrapper。开发环境仍可继续使用 `pip install -e .`。
+`/opt/homebrew/bin/muku` wrapper。开发环境仍可继续使用 `pip install -e .`。
 
 Windows PowerShell：
 
@@ -218,7 +219,7 @@ py -3.12 -m venv .venv
 python -m pip install -r requirements.txt
 python -m pip install -e .
 Copy-Item .env.example .env
-video-downloade serve --port 5657
+muku serve --port 5657
 ```
 
 如果你只想用 CLI：
@@ -232,7 +233,7 @@ python -m webui.cli --help
 | 入口 | 适合场景 | 默认产物 | 知识库稿 | 推荐认证方式 |
 | --- | --- | --- | --- | --- |
 | Web UI | 单条链接、人工观察任务状态、在线预览产物 | 原始逐字稿、逐字稿、解析稿、metadata | 默认不直接生成；可显式勾选知识库稿 | Docker 优先平台专用 `cookies.txt`；本地运行可用浏览器登录态或 `cookies.txt` |
-| CLI | 批量任务、脚本、agent、断点续跑 | 按命令生成逐字稿链路产物 | `--knowledge` 或 `video-downloade knowledge` | 平台专用 `cookies.txt` 最稳；本地运行时可用 `*_COOKIES_FROM_BROWSER` |
+| CLI | 批量任务、脚本、agent、断点续跑 | 按命令生成逐字稿链路产物 | `--knowledge` 或 `muku knowledge` | 平台专用 `cookies.txt` 最稳；本地运行时可用 `*_COOKIES_FROM_BROWSER` |
 | Docker Compose | Web UI + 容器内 CLI | 网页默认产物同 Web；容器内 CLI 可跑完整链路 | 通过容器内 CLI 完整支持 | 优先挂载 `./cookies:/cookies:ro` 并配置 `DOCKER_*_COOKIES_PATH` |
 | Skill | AI 自动入库、批量采集后处理 | 取决于 skill 调用的 CLI 参数 | 通常走 CLI `--knowledge` | 跟随底层 CLI / Docker 配置 |
 
@@ -267,13 +268,13 @@ python -m webui.cli --help
 1. 先在浏览器登录目标平台
 2. 优先准备平台专用 `cookies.txt`，并放到设置抽屉里填写，或直接放到仓库 `cookies/*.cookies.txt`
 3. 本地调试时，再补 `*_COOKIES_FROM_BROWSER=chrome`
-4. 再跑 `video-downloade doctor --json`，确认对应平台至少进入 `configured`；如果你用的是 `cookies.txt`，则还能进一步看到 `verified`
+4. 再跑 `muku doctor --json`，确认对应平台至少进入 `configured`；如果你用的是 `cookies.txt`，则还能进一步看到 `verified`
 
 Docker 运行：
 
 1. 先导出平台专用 `cookies.txt`
 2. 通过 `./cookies:/cookies:ro` 挂进容器，并配置 `DOCKER_*_COOKIES_PATH=/cookies/*.cookies.txt`
-3. 再跑 `video-downloade doctor --json`
+3. 再跑 `muku doctor --json`
 4. 只有在你确认容器能读取宿主机浏览器配置时，再把 `*_COOKIES_FROM_BROWSER` 当调试手段，而不是默认方案
 
 导出 `cookies.txt` 的最短路径：
@@ -295,18 +296,18 @@ Docker 运行：
 
 ```bash
 # URL -> 逐字稿 + 解析稿 + 知识库稿
-video-downloade capture "https://www.bilibili.com/video/BVxxxx" \
+muku capture "https://www.bilibili.com/video/BVxxxx" \
   --knowledge \
   --json
 
 # YouTube：建议带平台专用登录态
-video-downloade capture "https://www.youtube.com/watch?v=..." \
+muku capture "https://www.youtube.com/watch?v=..." \
   --youtube-cookies-from-browser chrome \
   --knowledge \
   --json
 
 # 批量 URL -> Markdown 知识库
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \
@@ -315,25 +316,25 @@ video-downloade capture \
   --output paths
 
 # 批量任务实时进度（NDJSON，每个任务完成一行，结尾汇总）
-video-downloade capture --input-file ./urls.txt --stream | tee progress.jsonl
+muku capture --input-file ./urls.txt --stream | tee progress.jsonl
 # progress.jsonl 每行一个事件：task_done / task_failed / batch_complete，
 # 方便 Monitor 类工具或 tail -f 消费。
 
 # 本地音频 -> 知识库
-video-downloade audio "/path/to/file.mp3" --knowledge --json
+muku audio "/path/to/file.mp3" --knowledge --json
 
 # 反查整组 sidecar 与 metadata
-video-downloade artifacts "/path/to/file.mp3" --json
+muku artifacts "/path/to/file.mp3" --json
 
 # 已有 sidecar 时单独补知识库稿
-video-downloade knowledge "/path/to/file.mp3" --json
+muku knowledge "/path/to/file.mp3" --json
 
 # 检查依赖和配置
-video-downloade doctor --json
+muku doctor --json
 
 # 查看或保存默认配置
-video-downloade config --json
-video-downloade config \
+muku config --json
+muku config \
   --download-dir "/Users/you/Downloads/muku" \
   --transcription-model openai/gpt-audio-mini \
   --cleanup-base-url https://openrouter.ai/api/v1 \
@@ -345,7 +346,7 @@ video-downloade config \
   --json
 
 # 启动现有 Web UI
-video-downloade serve --port 5657
+muku serve --port 5657
 ```
 
 更多命令和参数见 [docs/cli.md](docs/cli.md)。
@@ -354,7 +355,7 @@ video-downloade serve --port 5657
 
 如果你是第一次部署，优先按这个顺序检查：
 
-1. 运行 `video-downloade doctor`
+1. 运行 `muku doctor`
 2. 确认 `ffmpeg` 和 `yt-dlp` 是 `OK`
 3. 确认 `transcript capture` 是 `OK`
 4. 如果 YouTube / Douyin 失败率高，再补平台专用 Cookies；Docker 优先 `cookies.txt`
@@ -420,13 +421,13 @@ video-downloade serve --port 5657
 ./scripts/install-muku-skill
 ```
 
-如果你要做“博主主页 / 系列页 / 片单 -> 批量知识库”的自动化，推荐把幕库和 [`web-access`](https://github.com/eze-is/web-access) 组合起来：
+如果你要做“博主主页 / 系列页 / 片单 -> 批量知识库”的自动化，推荐先用 qianzhu `a2w-skill` 判断采集路径：Kimi WebBridge first，`web-access` 作为通用 fallback。
 
 1. 用浏览器型 agent 把目标页面提取为 `./urls.txt`
 2. 再让 `muku-video-to-md` 调用：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \
@@ -436,6 +437,8 @@ video-downloade capture \
 ```
 
 这样一来，AI 处理的就不再是一堆零散视频，而是一套持续生长的本地 Markdown 知识库。
+
+如果你要做“网页资料 -> Markdown -> 知识库”的自动化，可以吸收 `web-to-fim` 的路由思想，但不需要照搬它的飞书 / IMA 存储层：先用 qianzhu `a2w-skill` 判断采集路径，默认 Kimi WebBridge first，`web-access` 作为通用 fallback；采集结果保留 `source_url`、标题、抓取时间和抓取工具，再交给 Obsidian、RAG 或其他知识库。幕库的 CLI 仍主要负责视频 / 音频链路，普通网页不要直接塞进 `capture --knowledge`。
 
 ## 开源状态
 
@@ -448,7 +451,8 @@ video-downloade capture \
 
 - [docs/cli.md](docs/cli.md)：CLI、AI 集成、批量与知识库工作流
 - [docs/docker-deployment.md](docs/docker-deployment.md)：Docker 一键部署与容器内 CLI 用法
-- [docs/creator-batch-workflow.md](docs/creator-batch-workflow.md)：搭配 `web-access` 批量采链接并自动入库
+- [docs/creator-batch-workflow.md](docs/creator-batch-workflow.md)：搭配 A2W/Kimi/Web-access 批量采链接并自动入库
+- [docs/web-intake-strategy.md](docs/web-intake-strategy.md)：网页资料转 Markdown 与联网工具优先级
 - [docs/input-expansion-roadmap.md](docs/input-expansion-roadmap.md)：分享链接识别、多端入口和 APK 路线
 - [skills/README.md](skills/README.md)：公开 skill 目录与安装方式
 

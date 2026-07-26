@@ -1,33 +1,36 @@
 # CLI Usage For AI Agents
 
-优先使用这个仓库提供的原生命令行，而不是直接驱动浏览器或 Web 表单。
+视频 URL 和本地音频优先使用这个仓库提供的原生命令行，而不是直接驱动浏览器或 Web 表单。
+普通网页、动态页面、社交长文、公众号、飞书 wiki 等网页资料先走 qianzhu `a2w-skill`：
+默认 Kimi WebBridge first，`web-access` 作为通用 fallback。把网页内容提取成结构化 Markdown
+后，再交给幕库知识库整理或下游知识库。
 
 ## Primary Commands
 
 ```bash
 # URL -> 逐字稿 + 解析稿 + 知识库稿
-video-downloade capture "https://www.bilibili.com/video/BVxxxx" --knowledge --json
+muku capture "https://www.bilibili.com/video/BVxxxx" --knowledge --json
 
 # 批量 URL
-cat urls.txt | video-downloade capture --stdin --knowledge --json
-video-downloade capture --input-file ./urls.txt --result-file ./capture-result.json --json
+cat urls.txt | muku capture --stdin --knowledge --json
+muku capture --input-file ./urls.txt --result-file ./capture-result.json --json
 
 # 仅下载，不生成逐字稿
-video-downloade download "https://www.bilibili.com/video/BVxxxx" --preset "Best Audio (MP3)" --json
+muku download "https://www.bilibili.com/video/BVxxxx" --preset "Best Audio (MP3)" --json
 
 # 本地音频 -> 逐字稿 + 知识库稿
-video-downloade audio "/path/to/file.mp3" --knowledge --json
+muku audio "/path/to/file.mp3" --knowledge --json
 
 # 反查已有产物
-video-downloade artifacts "/path/to/file.mp3" --json
-video-downloade artifacts "/path/to/file.mp3" --full-metadata --json
+muku artifacts "/path/to/file.mp3" --json
+muku artifacts "/path/to/file.mp3" --full-metadata --json
 
 # 仅补知识库稿
-video-downloade knowledge "/path/to/file.mp3" --json
+muku knowledge "/path/to/file.mp3" --json
 
 # 检查依赖和 API 配置
-video-downloade doctor --json
-video-downloade config --json
+muku doctor --json
+muku config --json
 ```
 
 ## Output Expectations
@@ -38,6 +41,8 @@ video-downloade config --json
 - 需要批量输入时，优先使用 `--input-file` 或 `--stdin`。
 - 需要可追踪结果时，优先加 `--result-file`。
 - `capture --knowledge` 是 URL 转知识库产物的首选命令。
+- `capture --knowledge` 只适合视频平台 URL；普通网页不要强塞进 `capture`。
+- 网页资料入库时，先用 A2W/Kimi/Web-access 抽取正文 Markdown，并保留 `source_url`、`title`、`captured_at`、`capture_tool`。
 - `audio --knowledge` 用于已存在的 MP3、M4A、WAV 等本地音频文件。
 - `artifacts` 用于从任意 sidecar 或音频路径反查整组产物。
 - `artifacts` 默认只返回摘要 metadata；只有确实需要排障时再加 `--full-metadata`。
@@ -49,8 +54,8 @@ video-downloade config --json
 
 ## Runtime Config
 
-- 如果要先把默认下载目录、转写模型、解析模型或知识库模型配好，优先调用 `video-downloade config --json` 查看现状。
-- 需要写入默认配置时，用 `video-downloade config --download-dir ... --transcription-model ... --cleanup-model ... --article-model ... --knowledge-model ... --json`。
+- 如果要先把默认下载目录、转写模型、解析模型或知识库模型配好，优先调用 `muku config --json` 查看现状。
+- 需要写入默认配置时，用 `muku config --download-dir ... --transcription-model ... --cleanup-model ... --article-model ... --knowledge-model ... --json`。
 - Docker 场景下，下载目录应写容器内路径，例如 `/downloads/default`；宿主机真实路径由 Compose 的卷映射决定。
 
 ## Skill
@@ -59,3 +64,7 @@ video-downloade config --json
 
 - [skills/muku-video-to-md/SKILL.md](skills/muku-video-to-md/SKILL.md)
 - [.codex/skills/muku-video-to-md/SKILL.md](.codex/skills/muku-video-to-md/SKILL.md)
+
+如果任务涉及联网搜索、网页资料入库、动态网页观察或选择 Kimi / web-access / curl / Jina 等工具，
+同时加载 qianzhu `a2w-skill`。当前建议的联网优先级是：Kimi WebBridge first for visual / dynamic /
+login-state pages，web-access for general fallback，Scrapling later for repeatable structured batch collection。

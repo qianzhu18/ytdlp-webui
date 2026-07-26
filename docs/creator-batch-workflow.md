@@ -8,7 +8,9 @@
 推荐组合：
 
 - 本仓库的 `muku-video-to-md` skill：负责下载、逐字稿、知识库整理
-- [`web-access`](https://github.com/eze-is/web-access)：负责打开动态页面、浏览器登录态页面和创作者主页，把 URL 提成 `urls.txt`
+- qianzhu `a2w-skill`：负责判断用 Kimi WebBridge、`web-access`、Jina、curl 还是其他采集路径
+- Kimi WebBridge：默认第一选择，负责打开动态页面、浏览器登录态页面和创作者主页，把 URL 提成 `urls.txt`
+- `web-access`：作为普通搜索、静态正文、来源核实和 Kimi 不可用时的 fallback
 
 ## 1. 安装
 
@@ -18,21 +20,22 @@
 ./scripts/install-muku-skill
 ```
 
-安装 [`web-access`](https://github.com/eze-is/web-access)：
+如果需要 `web-access` fallback，可安装 [`web-access`](https://github.com/eze-is/web-access)：
 
 ```bash
 claude plugin marketplace add https://github.com/eze-is/web-access
 claude plugin install web-access@web-access --scope user
 ```
 
-`web-access` 的 README 当前建议准备 `Node.js 22+`，并在 Chrome 里开启远程调试，以便走 CDP 浏览器模式。
+`web-access` 的 README 当前建议准备 `Node.js 22+`，并在 Chrome 里开启远程调试，以便走 CDP 浏览器模式。Kimi WebBridge 可直接使用真实浏览器会话，适合优先观察动态页面。
 
-## 2. 让 web-access 采链接
+## 2. 让 A2W 选择采集路径
 
 推荐 prompt：
 
 ```text
-请打开这个创作者主页，只提取「XXX 系列」的视频链接。
+请用 qianzhu a2w 策略打开这个创作者主页，只提取「XXX 系列」的视频链接。
+默认优先 Kimi WebBridge；如果 Kimi 不可用，再回退到 web-access。
 要求：
 1. 每行一个 URL
 2. 不要输出解释
@@ -54,7 +57,7 @@ claude plugin install web-access@web-access --scope user
 最推荐的命令模板：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --knowledge \
   --jobs 0 \
@@ -72,7 +75,7 @@ video-downloade capture \
 如果平台需要登录态，建议加平台专用 Cookies：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./urls.txt \
   --youtube-cookies-from-browser chrome \
   --bilibili-cookies-path ./cookies/bilibili.cookies.txt \
@@ -95,7 +98,7 @@ video-downloade capture \
 你可以直接试跑：
 
 ```bash
-video-downloade capture \
+muku capture \
   --input-file ./examples/creator-batch/bilibili-demo.urls.txt \
   --bilibili-cookies-path ./cookies/bilibili.cookies.txt \
   --output-dir ./runs/bilibili-creator-demo \

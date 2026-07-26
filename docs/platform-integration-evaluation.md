@@ -1,6 +1,6 @@
 # 多平台整合评估
 
-这份文档评估两个外部项目是否适合并入当前 `ytdlp-webui` / `video-downloade` 链路，用来扩大“分享链接 + 网址”输入覆盖范围：
+这份文档评估两个外部项目是否适合并入当前 `ytdlp-webui` / `muku` 链路，用来扩大“分享链接 + 网址”输入覆盖范围：
 
 - `jiji262/douyin-downloader`
 - `ltaoo/wx_channels_download`

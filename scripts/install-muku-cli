@@ -6,7 +6,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 RUNTIME_ROOT="${MUKU_RUNTIME_ROOT:-${HOME}/.local/share/muku-video-downloade}"
 VENV_DIR="${RUNTIME_ROOT}/venv"
 BIN_DIR="${MUKU_BIN_DIR:-/opt/homebrew/bin}"
-WRAPPER="${BIN_DIR}/video-downloade"
 
 python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/python" -m pip install --upgrade pip
@@ -14,8 +13,11 @@ python3 -m venv "${VENV_DIR}"
 "${VENV_DIR}/bin/python" -m pip install --force-reinstall "${REPO_ROOT}"
 
 mkdir -p "${BIN_DIR}"
-printf '#!/bin/sh\nexec "%s/bin/video-downloade" "$@"\n' "${VENV_DIR}" > "${WRAPPER}"
-chmod +x "${WRAPPER}"
+for WRAPPER_NAME in muku video-downloade; do
+  WRAPPER="${BIN_DIR}/${WRAPPER_NAME}"
+  printf '#!/bin/sh\nexec "%s/bin/muku" "$@"\n' "${VENV_DIR}" > "${WRAPPER}"
+  chmod +x "${WRAPPER}"
+done
 
-"${WRAPPER}" doctor --json >/dev/null
-echo "Installed Muku CLI to ${WRAPPER}"
+muku doctor --json >/dev/null
+echo "Installed Muku CLI to ${BIN_DIR}/muku (alias ${BIN_DIR}/video-downloade)"

@@ -74,8 +74,8 @@ docker compose up -d --build
 建议启动后立刻跑：
 
 ```powershell
-docker compose exec ytdl-webui video-downloade doctor
-docker compose exec ytdl-webui video-downloade doctor --json
+docker compose exec ytdl-webui muku doctor
+docker compose exec ytdl-webui muku doctor --json
 ```
 
 如果 `doctor` 里这几项都正常，基本就可以发起第一次任务：
@@ -95,7 +95,7 @@ docker compose exec ytdl-webui video-downloade doctor --json
 1. 先在 Chrome 或 Edge 登录目标平台
 2. 优先导出对应平台的 `cookies.txt`
 3. 挂载到容器里的 `/cookies/*.cookies.txt`
-4. 再运行 `video-downloade doctor --json`
+4. 再运行 `muku doctor --json`
 
 如果你不是 Docker，而是本地 Python 运行，再优先尝试 `*_COOKIES_FROM_BROWSER=chrome` 会更自然。
 
@@ -117,9 +117,9 @@ DOCKER_DOUYIN_COOKIES_PATH=/cookies/douyin.cookies.txt
 ## PowerShell 常用命令
 
 ```powershell
-docker compose exec ytdl-webui video-downloade doctor
-docker compose exec ytdl-webui video-downloade config --json
-docker compose exec ytdl-webui video-downloade capture "https://www.bilibili.com/video/BVxxxx" --json
+docker compose exec ytdl-webui muku doctor
+docker compose exec ytdl-webui muku config --json
+docker compose exec ytdl-webui muku capture "https://www.bilibili.com/video/BVxxxx" --json
 docker compose logs -f ytdl-webui
 ```
 
@@ -133,7 +133,7 @@ docker compose logs -f ytdl-webui
 
 ### 2. 能打开网页，但任务报错
 
-- 先运行 `docker compose exec ytdl-webui video-downloade doctor`
+- 先运行 `docker compose exec ytdl-webui muku doctor`
 - 看 `ffmpeg`、`yt-dlp`、`transcript capture` 是否正常
 
 ### 3. 下载目录改了，但找不到文件

@@ -8,7 +8,7 @@
 - 下载产物和网页端保存的配置都会持久化
 - Windows / macOS 默认都能直接用仓库内的 `./docker-data` 目录
 - 网页端可以改默认下载目录、转写模型、解析模型，以及供 Web 可选知识库稿 / CLI / 后续整理复用的知识库模型和提示词
-- 容器里仍然可以直接使用 `video-downloade` CLI
+- 容器里仍然可以直接使用 `muku` CLI
 
 ## 默认目录约定
 
@@ -79,8 +79,8 @@ http://localhost:5657
 ### 5. 做一次自检
 
 ```bash
-docker compose exec ytdl-webui video-downloade doctor --json
-docker compose exec ytdl-webui video-downloade config --json
+docker compose exec ytdl-webui muku doctor --json
+docker compose exec ytdl-webui muku config --json
 ```
 
 注意：`doctor` 现在会同时显示 `configured` 和 `verified`。在 Docker 里，如果浏览器登录态只显示 `CONFIGURED_ONLY`，表示它知道你配了这项，但不会把它误判成“容器内已验证可用”。
@@ -177,14 +177,14 @@ DOCKER_DOUYIN_COOKIES_PATH=/cookies/douyin.cookies.txt
 ### 查看当前配置
 
 ```bash
-docker compose exec ytdl-webui video-downloade config --json
+docker compose exec ytdl-webui muku config --json
 ```
 
 ### 用 CLI 写默认配置
 
 ```bash
 docker compose exec ytdl-webui \
-  video-downloade config \
+  muku config \
   --download-dir /downloads/default \
   --transcription-model openai/gpt-audio-mini \
   --cleanup-base-url https://openrouter.ai/api/v1 \
@@ -200,7 +200,7 @@ docker compose exec ytdl-webui \
 
 ```bash
 docker compose exec ytdl-webui \
-  video-downloade capture "https://www.bilibili.com/video/BVxxxx" \
+  muku capture "https://www.bilibili.com/video/BVxxxx" \
   --knowledge \
   --json
 ```
@@ -209,7 +209,7 @@ docker compose exec ytdl-webui \
 
 ```bash
 docker compose exec ytdl-webui \
-  video-downloade capture \
+  muku capture \
   --input-file /downloads/urls.txt \
   --knowledge \
   --jobs 0 \

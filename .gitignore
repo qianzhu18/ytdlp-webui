@@ -21,6 +21,7 @@ dist/
 downloads/
 docker-data/
 .runtime/
+runs/
 *.mp4
 *.part
 *.ytdl
