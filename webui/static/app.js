@@ -157,6 +157,7 @@ let pendingAutoSubmit = false;
   updateSubmitLabel();
   renderStarterGuide();
   bindEvents();
+  bindCookieRefreshButtons();
   applyPrefillPayload();
   setMonitorPanel("queue");
 
@@ -267,6 +268,64 @@ async function submitDownloadForm(event) {
     startBtn.disabled = false;
     updateSubmitLabel();
   }
+}
+
+function bindCookieRefreshButtons() {
+  document.querySelectorAll(".settings-cookie-refresh").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const platform = btn.dataset.platform;
+      const originalText = btn.textContent;
+      const panel = platformCookiePanels[platform];
+
+      btn.disabled = true;
+      btn.textContent = "刷新中...";
+      if (panel?.help) {
+        panel.help.textContent = `正在从浏览器提取 ${panel.label} cookies...`;
+      }
+
+      try {
+        const res = await apiFetch(`/api/auth/refresh/${platform}`, { method: "POST" });
+        const data = await res.json().catch(() => ({}));
+
+        if (res.ok && data.ok) {
+          if (panel?.help) {
+            panel.help.textContent = `刷新成功：${data.detail || "已更新"}。`;
+          }
+          // 重新拉 settings 同步 auth_state
+          try {
+            const settingsRes = await apiFetch("/api/settings");
+            if (settingsRes.ok) {
+              const settingsData = await settingsRes.json();
+              config.settings = settingsData;
+              hydrateSettings(settingsData);
+              updatePlatformCookieSettings();
+            }
+          } catch (_) {}
+        } else {
+          const msg = data.detail || data.error || "刷新失败。";
+          const hint = data.script
+            ? ` 请在宿主机运行：${data.script}`
+            : data.suggestion
+              ? ` ${data.suggestion}`
+              : "";
+          if (panel?.help) {
+            panel.help.textContent = `${msg}${hint}`;
+          } else {
+            alert(msg + hint);
+          }
+        }
+      } catch (err) {
+        if (panel?.help) {
+          panel.help.textContent = `刷新失败：${err?.message || err}`;
+        } else {
+          alert("刷新失败: " + (err?.message || err));
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  });
 }
 
 async function submitSettingsForm(event) {

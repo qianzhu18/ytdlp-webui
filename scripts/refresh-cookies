@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# 从本地浏览器刷新指定平台的 cookies.txt，按平台域名过滤后写入。
+# 用法: ./scripts/refresh-cookies <bilibili|douyin|youtube>
+# 可选环境变量:
+#   MUKU_REFRESH_BROWSER  浏览器名，默认 chrome
+#   MUKU_COOKIES_FILE     输出路径，默认 <repo>/cookies/<platform>.cookies.txt
+set -euo pipefail
+
+PLATFORM="${1:-}"
+case "$PLATFORM" in
+  bilibili|douyin|youtube) ;;
+  *)
+    echo "Usage: $0 <bilibili|douyin|youtube>" >&2
+    echo "Example: $0 bilibili" >&2
+    exit 1
+    ;;
+esac
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+BROWSER="${MUKU_REFRESH_BROWSER:-chrome}"
+COOKIES_FILE="${MUKU_COOKIES_FILE:-${REPO_ROOT}/cookies/${PLATFORM}.cookies.txt}"
+
+echo "Extracting ${PLATFORM} cookies from ${BROWSER} -> ${COOKIES_FILE}"
+python3 - <<PYSCRIPT "${PLATFORM}" "${BROWSER}" "${COOKIES_FILE}" "${REPO_ROOT}"
+import sys
+from pathlib import Path
+
+platform_key = sys.argv[1]
+browser = sys.argv[2]
+cookies_file = Path(sys.argv[3])
+repo_root = Path(sys.argv[4])
+
+sys.path.insert(0, str(repo_root))
+from webui.cookie_health import refresh_platform_cookies  # noqa: E402
+
+platform_map = {
+    "bilibili": "Bilibili",
+    "douyin": "Douyin",
+    "youtube": "YouTube",
+}
+result = refresh_platform_cookies(
+    platform_map[platform_key],
+    cookies_file,
+    browser_spec=(browser, None, None, None),
+)
+print(f"ok: {result.ok}")
+print(f"detail: {result.detail}")
+if result.suggestion:
+    print(f"suggestion: {result.suggestion}")
+sys.exit(0 if result.ok else 1)
+PYSCRIPT

@@ -179,3 +179,80 @@ def check_platform(platform: str, cookiefile: Path | None) -> CookieHealth:
         detail=f"{platform} 暂不支持预检，跳过。",
         skipped=True,
     )
+
+
+_PLATFORM_COOKIE_DOMAINS: dict[str, tuple[str, ...]] = {
+    "Bilibili": ("bilibili.com", "biligaming.com", "bilivideo.com", "bilivideo.cn", "biliapi.net"),
+    "Douyin": ("douyin.com", "iesdouyin.com", "amemv.com", "snssdk.com", "toutiao.com"),
+    "YouTube": ("youtube.com", "youtu.be", "google.com", "googleapis.com", "googlevideo.com"),
+}
+
+
+def _platform_cookie_domains(platform: str) -> tuple[str, ...]:
+    return _PLATFORM_COOKIE_DOMAINS.get(platform, ())
+
+
+def refresh_platform_cookies(
+    platform: str,
+    cookiefile: Path,
+    *,
+    browser_spec: tuple[str, str | None, str | None, str | None] | None = None,
+) -> CookieHealth:
+    """从浏览器提取最新 cookies 写入 cookiefile，然后做一次健康检查。
+
+    本地模式有效；Docker 容器内调用会失败（无法访问宿主机浏览器）。
+    browser_spec: (browser_name, profile, keyring, container)。
+    """
+    from yt_dlp.cookies import YoutubeDLCookieJar, extract_cookies_from_browser
+
+    if browser_spec is None:
+        browser_spec = ("chrome", None, None, None)
+    browser_name, profile, keyring, container = browser_spec
+    domains = _platform_cookie_domains(platform)
+
+    try:
+        extracted = extract_cookies_from_browser(
+            browser_name,
+            profile=profile,
+            keyring=keyring,
+            container=container,
+        )
+    except Exception as exc:
+        return CookieHealth(
+            ok=False,
+            platform=platform,
+            detail=f"从 {browser_name} 提取 cookies 失败：{exc}",
+            suggestion=(
+                f"确认 {browser_name} 已登录 {platform}；"
+                "且 webui 跑在能访问浏览器的宿主机（非容器）环境。"
+            ),
+        )
+
+    matching = [c for c in extracted if any(d in (c.domain or "") for d in domains)]
+    if not matching:
+        return CookieHealth(
+            ok=False,
+            platform=platform,
+            detail=f"在 {browser_name} 里没找到 {platform} 相关 cookies。",
+            suggestion=f"先在 {browser_name} 里访问并登录 {platform}，再点刷新。",
+        )
+
+    try:
+        cookiefile.parent.mkdir(parents=True, exist_ok=True)
+        backup = cookiefile.with_suffix(cookiefile.suffix + ".bak-auto")
+        if cookiefile.exists():
+            import shutil
+            shutil.copy2(cookiefile, backup)
+        jar = YoutubeDLCookieJar(filename=str(cookiefile))
+        for cookie in matching:
+            jar.set_cookie(cookie)
+        jar.save(ignore_discard=True, ignore_expires=True)
+    except Exception as exc:
+        return CookieHealth(
+            ok=False,
+            platform=platform,
+            detail=f"写入 {cookiefile} 失败：{exc}",
+            suggestion=f"检查 {cookiefile.parent} 目录权限和磁盘空间。",
+        )
+
+    return check_platform(platform, cookiefile)

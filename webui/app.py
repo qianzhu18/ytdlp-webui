@@ -3289,6 +3289,77 @@ def start():
     return jsonify({"count": added, "job_ids": job_ids})
 
 
+@app.route("/api/auth/refresh/<platform>", methods=["POST"])
+@require_web_token
+def refresh_platform_auth(platform: str):
+    """从浏览器刷新指定平台的 cookies.txt，并立即跑一次健康检查。
+
+    仅本地模式可用；容器内调用返回明确错误，引导用户运行宿主机脚本。
+    """
+    platform_lower = platform.lower()
+    platform_map = {
+        "bilibili": ("Bilibili", BILIBILI_COOKIES_PATH, BILIBILI_COOKIES_FROM_BROWSER),
+        "douyin": ("Douyin", DOUYIN_COOKIES_PATH, DOUYIN_COOKIES_FROM_BROWSER),
+        "youtube": ("YouTube", YOUTUBE_COOKIES_PATH, YOUTUBE_COOKIES_FROM_BROWSER),
+    }
+    if platform_lower not in platform_map:
+        return jsonify({"error": f"Unsupported platform: {platform}"}), 400
+
+    canonical_name, cookie_path_str, browser_spec_str = platform_map[platform_lower]
+
+    if running_in_container():
+        return jsonify({
+            "ok": False,
+            "platform": canonical_name,
+            "status": "container_unsupported",
+            "detail": (
+                "Docker 容器无法访问宿主机浏览器的 cookies。"
+                "请在宿主机上运行 ./scripts/refresh-cookies "
+                f"{platform_lower}，再回到 webui 重试。"
+            ),
+            "script": f"./scripts/refresh-cookies {platform_lower}",
+        }), 400
+
+    if not cookie_path_str:
+        return jsonify({
+            "ok": False,
+            "platform": canonical_name,
+            "status": "missing_config",
+            "detail": (
+                f"未配置 {canonical_name} 专用 cookies 路径。"
+                "请在 .env 设置 *_COOKIES_PATH 后重试。"
+            ),
+        }), 400
+
+    try:
+        cookie_path = Path(cookie_path_str).expanduser()
+    except Exception as exc:
+        return jsonify({"error": f"Invalid cookie path: {exc}"}), 400
+
+    browser_spec = None
+    if browser_spec_str:
+        try:
+            browser_spec = parse_cookies_from_browser_spec(browser_spec_str)
+        except Exception as exc:
+            return jsonify({"error": f"Invalid browser spec: {exc}"}), 400
+
+    result = cookie_health.refresh_platform_cookies(
+        canonical_name,
+        cookie_path,
+        browser_spec=browser_spec,
+    )
+
+    auth_state = platform_auth_state(canonical_name)
+    return jsonify({
+        "ok": result.ok,
+        "platform": canonical_name,
+        "status": auth_state.get("status"),
+        "detail": result.detail,
+        "suggestion": result.suggestion,
+        "auth": auth_state,
+    })
+
+
 @app.route("/api/tasks")
 @require_web_token
 def tasks():
