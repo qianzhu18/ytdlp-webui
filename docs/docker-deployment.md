@@ -186,7 +186,7 @@ docker compose exec ytdl-webui muku config --json
 docker compose exec ytdl-webui \
   muku config \
   --download-dir /downloads/default \
-  --transcription-model openai/gpt-audio-mini \
+  --transcription-model google/gemini-2.5-flash \
   --cleanup-base-url https://openrouter.ai/api/v1 \
   --cleanup-model stepfun/step-3.7-flash \
   --article-base-url https://openrouter.ai/api/v1 \

@@ -979,6 +979,55 @@ class SubtitleParsingTests(unittest.TestCase):
 
         self.assertEqual(merged, "第一段\n重复边界\n\n第二段")
 
+    def test_chunked_transcription_reports_the_models_that_actually_succeeded(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            chunk_one = Path(temp_dir) / "chunk-000.mp3"
+            chunk_two = Path(temp_dir) / "chunk-001.mp3"
+            for path in (chunk_one, chunk_two):
+                path.write_text("audio", encoding="utf-8")
+
+            job = web_app.Job(
+                job_id="job-chunked-model-metadata",
+                url="https://example.com/video",
+                preset=web_app.TRANSCRIPT_PRESET_NAME,
+                use_cookies=False,
+                generate_transcript=True,
+            )
+            job.title = "Sample"
+
+            with mock.patch.object(
+                web_app,
+                "split_audio_for_transcription",
+                return_value=[chunk_one, chunk_two],
+            ), mock.patch.object(
+                web_app,
+                "transcribe_audio",
+                side_effect=[
+                    {
+                        "provider": "openrouter",
+                        "model": "google/gemini-2.5-flash",
+                        "text": "第一段",
+                        "raw_response": {"id": "chunk-1"},
+                    },
+                    {
+                        "provider": "openrouter",
+                        "model": "google/gemini-2.5-flash-lite",
+                        "text": "第二段",
+                        "raw_response": {"id": "chunk-2"},
+                    },
+                ],
+            ):
+                result = web_app.transcribe_audio_in_chunks(job, chunk_one)
+
+        self.assertEqual(
+            result["model"],
+            "google/gemini-2.5-flash,google/gemini-2.5-flash-lite",
+        )
+        self.assertEqual(
+            [chunk["model"] for chunk in result["raw_response"]["chunks"]],
+            ["google/gemini-2.5-flash", "google/gemini-2.5-flash-lite"],
+        )
+
     def test_run_transcription_pipeline_retries_with_chunked_transcription_after_truncation(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             audio_path = Path(temp_dir) / "sample.mp3"
@@ -1551,6 +1600,7 @@ class TranscriptRoutingTests(unittest.TestCase):
         payload = json.loads(result.output)
         self.assertIn("settings_path", payload)
         self.assertIn("download_root_locked", payload)
+        self.assertIn("transcription_fallback_models", payload)
         self.assertIn("knowledge_enabled", payload)
         self.assertIn("knowledge_capture_ready", payload)
         self.assertIn("douyin_auth_configured", payload)

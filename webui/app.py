@@ -1715,6 +1715,7 @@ def transcribe_audio_in_chunks(job: Job, audio_path: Path, *, fallback_error: Ex
 
     chunk_texts: list[str] = []
     chunk_responses: list[dict[str, object]] = []
+    successful_models: list[str] = []
     for index, chunk_path in enumerate(chunk_paths, start=1):
         set_job_state(
             job,
@@ -1730,10 +1731,12 @@ def transcribe_audio_in_chunks(job: Job, audio_path: Path, *, fallback_error: Ex
         if not chunk_text:
             raise RuntimeError(f"Chunk {index}/{len(chunk_paths)} returned an empty transcript.")
         chunk_texts.append(chunk_text)
+        successful_models.append(str(result["model"]))
         chunk_responses.append(
             {
                 "index": index,
                 "path": str(chunk_path),
+                "model": result["model"],
                 "response": result["raw_response"],
             }
         )
@@ -1742,9 +1745,11 @@ def transcribe_audio_in_chunks(job: Job, audio_path: Path, *, fallback_error: Ex
     if not merged_text:
         raise RuntimeError("Chunked transcription returned an empty transcript.")
 
+    actual_models = list(dict.fromkeys(successful_models))
+
     return {
         "provider": "openrouter",
-        "model": OPENROUTER_TRANSCRIPTION_MODEL,
+        "model": ",".join(actual_models),
         "text": merged_text,
         "raw_response": {
             "chunked": True,

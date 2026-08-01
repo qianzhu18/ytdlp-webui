@@ -56,7 +56,7 @@ if __name__ == "__main__" or Path(sys.argv[0]).stem.lower() in {"muku", "video-d
 try:
     MUKU_VERSION = version("muku")
 except PackageNotFoundError:
-    MUKU_VERSION = "0.2.0"
+    MUKU_VERSION = "0.2.1"
 
 
 def _normalize_output_mode(output: str, as_json: bool) -> str:
@@ -121,6 +121,9 @@ def _doctor_report() -> dict[str, object]:
         "transcription_enabled": web_app.ENABLE_TRANSCRIPTION,
         "openrouter_base_url": web_app.OPENROUTER_BASE_URL,
         "transcription_model": web_app.OPENROUTER_TRANSCRIPTION_MODEL,
+        "transcription_fallback_models": list(
+            openrouter_backend._transcription_model_candidates()[1:]
+        ),
         "openrouter_key_configured": bool(web_app.transcribe_audio.__globals__.get("OPENROUTER_API_KEY")),
         "cleanup_enabled": web_app.AI_CLEANUP_ENABLED,
         "cleanup_base_url": web_app.AI_CLEANUP_BASE_URL,
@@ -261,7 +264,8 @@ def _format_doctor_report(report: dict[str, object]) -> str:
         (
             f"- transcription: {_enabled_label(bool(report['transcription_enabled']))}, "
             f"key={_status_label(bool(report['openrouter_key_configured']))}, "
-            f"model={report['transcription_model']}"
+            f"model={report['transcription_model']}, "
+            f"fallbacks={','.join(report['transcription_fallback_models']) or 'none'}"
         ),
         (
             f"- cleanup: {_enabled_label(bool(report['cleanup_enabled']))}, "
