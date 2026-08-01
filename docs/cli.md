@@ -129,7 +129,7 @@ muku config --json
 # 设置默认下载目录和模型
 muku config \
   --download-dir "/Users/you/Downloads/muku" \
-  --transcription-model openai/gpt-audio-mini \
+  --transcription-model google/gemini-2.5-flash \
   --cleanup-base-url https://openrouter.ai/api/v1 \
   --cleanup-model stepfun/step-3.7-flash \
   --article-base-url https://openrouter.ai/api/v1 \
@@ -176,12 +176,14 @@ muku config \
 ```bash
 muku capture URL --language zh --json
 muku capture URL --output-dir "/Users/you/Downloads/muku/bilibili" --json
-muku capture URL --transcription-model openai/gpt-audio-mini --json
+muku capture URL --transcription-model google/gemini-2.5-flash --json
 muku capture URL --cleanup-model stepfun/step-3.7-flash --article-model stepfun/step-3.7-flash --json
 muku capture URL --knowledge-model stepfun/step-3.7-flash --json
 muku capture URL --knowledge-prompt-file ./知识库提示词.md --json
 muku audio FILE --no-article --knowledge --json
 ```
+
+默认音频模型是 `google/gemini-2.5-flash`。模型明确拒绝音频输入时，Muku 会自动尝试 `OPENROUTER_TRANSCRIPTION_FALLBACK_MODELS` 中的候选模型；全部拒绝时任务会失败，不会生成内容错误的逐字稿。使用 `muku doctor --json` 可以查看当前生效的主模型和回退列表。
 
 ## 断点恢复与高并发
 

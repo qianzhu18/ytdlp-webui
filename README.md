@@ -360,7 +360,7 @@ muku doctor --json
 muku config --json
 muku config \
   --download-dir "/Users/you/Downloads/muku" \
-  --transcription-model openai/gpt-audio-mini \
+  --transcription-model google/gemini-2.5-flash \
   --cleanup-base-url https://openrouter.ai/api/v1 \
   --cleanup-model stepfun/step-3.7-flash \
   --article-base-url https://openrouter.ai/api/v1 \
@@ -372,6 +372,8 @@ muku config \
 # 启动现有 Web UI
 muku serve --port 5657
 ```
+
+默认音频模型是 `google/gemini-2.5-flash`。如果模型返回“无法收听或转录音频”一类拒绝文本，Muku 会自动尝试回退模型；全部候选模型都拒绝时任务会明确失败，不会把拒绝语误存成逐字稿。`muku doctor --json` 会显示当前生效的主模型和回退列表。
 
 更多命令和参数见 [docs/cli.md](docs/cli.md)。
 

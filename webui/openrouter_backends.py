@@ -23,8 +23,20 @@ OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 OPENROUTER_SITE_URL = os.environ.get("OPENROUTER_SITE_URL", "")
 OPENROUTER_APP_NAME = os.environ.get("OPENROUTER_APP_NAME", "幕库 Muku")
+DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL = "google/gemini-2.5-flash"
 OPENROUTER_TRANSCRIPTION_MODEL = os.environ.get(
-    "OPENROUTER_TRANSCRIPTION_MODEL", "openai/gpt-audio-mini"
+    "OPENROUTER_TRANSCRIPTION_MODEL", DEFAULT_OPENROUTER_TRANSCRIPTION_MODEL
+)
+OPENROUTER_TRANSCRIPTION_FALLBACK_MODELS = tuple(
+    model
+    for model in dict.fromkeys(
+        part.strip()
+        for part in os.environ.get(
+            "OPENROUTER_TRANSCRIPTION_FALLBACK_MODELS",
+            "google/gemini-2.5-flash,google/gemini-2.5-flash-lite",
+        ).split(",")
+    )
+    if model
 )
 OPENROUTER_CLEANUP_MODEL = os.environ.get("OPENROUTER_CLEANUP_MODEL", "openai/gpt-4o-mini")
 OPENROUTER_ARTICLE_MODEL = os.environ.get("OPENROUTER_ARTICLE_MODEL", "openai/gpt-4o-mini")
@@ -36,6 +48,37 @@ OPENROUTER_READ_TIMEOUT_SECONDS = int(
 OPENROUTER_MAX_RETRIES = int(os.environ.get("OPENROUTER_MAX_RETRIES", "6"))
 OPENROUTER_RETRY_BACKOFF_MAX = int(os.environ.get("OPENROUTER_RETRY_BACKOFF_MAX", "60"))
 RETRYABLE_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504}
+AUDIO_INPUT_REFUSAL_MARKERS = (
+    "can't listen to audio",
+    "cannot listen to audio",
+    "can't listen to or transcribe audio",
+    "cannot listen to or transcribe audio",
+    "can't transcribe audio",
+    "cannot transcribe audio",
+    "can't process audio",
+    "cannot process audio",
+    "unable to listen to the audio",
+    "unable to transcribe the audio",
+    "unable to process audio",
+    "provide the text or details from the audio",
+    "provide a transcript",
+    "无法收听音频",
+    "无法直接收听",
+    "无法转录音频",
+    "无法处理音频",
+    "不能转录音频",
+    "请提供逐字稿",
+)
+
+
+def _transcription_model_candidates() -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            model
+            for model in (OPENROUTER_TRANSCRIPTION_MODEL, *OPENROUTER_TRANSCRIPTION_FALLBACK_MODELS)
+            if model
+        )
+    )
 
 
 def _response_error_detail(response: requests.Response | None) -> str:
@@ -181,6 +224,37 @@ def _ensure_response_not_truncated(data: dict, *, operation: str) -> None:
     )
 
 
+def _looks_like_audio_input_refusal(text: str) -> bool:
+    normalized = " ".join(str(text or "").lower().replace("’", "'").split())
+    if not normalized or len(normalized) > 1600:
+        return False
+    if any(marker in normalized for marker in AUDIO_INPUT_REFUSAL_MARKERS):
+        return True
+
+    incapacity_markers = ("can't", "cannot", "unable", "not able", "无法", "不能")
+    audio_markers = ("audio", "音频")
+    action_markers = ("listen", "transcribe", "process", "收听", "转录", "处理")
+    handoff_markers = (
+        "provide the text",
+        "provide a text",
+        "provide a transcript",
+        "text form",
+        "describe the content",
+        "提供文本",
+        "提供逐字稿",
+        "描述音频",
+    )
+    return all(
+        any(marker in normalized for marker in marker_group)
+        for marker_group in (
+            incapacity_markers,
+            audio_markers,
+            action_markers,
+            handoff_markers,
+        )
+    )
+
+
 def transcribe_audio(audio_path: Path, title: str, source_url: str, language_hint: str) -> dict:
     prompt = (
         "Transcribe this audio faithfully. "
@@ -193,7 +267,6 @@ def transcribe_audio(audio_path: Path, title: str, source_url: str, language_hin
         prompt += f" The expected main language is {language_hint}."
 
     payload = {
-        "model": OPENROUTER_TRANSCRIPTION_MODEL,
         "temperature": 0,
         "messages": [
             {
@@ -215,14 +288,28 @@ def transcribe_audio(audio_path: Path, title: str, source_url: str, language_hin
         ],
     }
 
-    data = _post_chat(payload)
-    _ensure_response_not_truncated(data, operation="transcription")
-    return {
-        "provider": "openrouter",
-        "model": OPENROUTER_TRANSCRIPTION_MODEL,
-        "text": _extract_text(data),
-        "raw_response": data,
-    }
+    attempted_models: list[str] = []
+    last_refusal = ""
+    for model in _transcription_model_candidates():
+        attempted_models.append(model)
+        data = _post_chat({**payload, "model": model})
+        _ensure_response_not_truncated(data, operation="transcription")
+        transcript_text = _extract_text(data)
+        if _looks_like_audio_input_refusal(transcript_text):
+            last_refusal = transcript_text
+            continue
+        return {
+            "provider": "openrouter",
+            "model": model,
+            "text": transcript_text,
+            "raw_response": data,
+        }
+
+    refusal_preview = " ".join(last_refusal.split())[:240]
+    raise RuntimeError(
+        "Audio transcription refused audio input with all attempted models "
+        f"({', '.join(attempted_models)}). Last response: {refusal_preview}"
+    )
 
 
 def cleanup_markdown(clean_text: str, title: str, source_url: str) -> dict:

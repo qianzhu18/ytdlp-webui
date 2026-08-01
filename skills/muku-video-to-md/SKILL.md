@@ -144,7 +144,7 @@ muku capture URL \
 ```bash
 muku config \
   --download-dir "/Users/you/Downloads/muku" \
-  --transcription-model openai/gpt-audio-mini \
+  --transcription-model google/gemini-2.5-flash \
   --cleanup-base-url https://openrouter.ai/api/v1 \
   --cleanup-model stepfun/step-3.7-flash \
   --article-base-url https://openrouter.ai/api/v1 \
@@ -168,7 +168,7 @@ qianzhu `a2w-skill` 判断路径。默认策略是 Kimi WebBridge first，`web-a
 
 ```bash
 muku capture URL --language zh --json
-muku capture URL --transcription-model openai/gpt-audio-mini --json
+muku capture URL --transcription-model google/gemini-2.5-flash --json
 muku capture URL --knowledge-model stepfun/step-3.7-flash --json
 muku capture URL --knowledge-prompt-file ./知识库提示词.md --json
 muku audio FILE --no-article --knowledge --json
