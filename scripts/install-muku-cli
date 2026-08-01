@@ -3,21 +3,85 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
-RUNTIME_ROOT="${MUKU_RUNTIME_ROOT:-${HOME}/.local/share/muku-video-downloade}"
-VENV_DIR="${RUNTIME_ROOT}/venv"
-BIN_DIR="${MUKU_BIN_DIR:-/opt/homebrew/bin}"
+DEFAULT_REMOTE_SOURCE="git+https://github.com/qianzhu18/Muku.git"
+if [[ -f "${REPO_ROOT}/pyproject.toml" ]]; then
+  DEFAULT_INSTALL_SOURCE="${REPO_ROOT}"
+else
+  DEFAULT_INSTALL_SOURCE="${DEFAULT_REMOTE_SOURCE}"
+fi
 
-python3 -m venv "${VENV_DIR}"
-"${VENV_DIR}/bin/python" -m pip install --upgrade pip
-# Editable installs break when the repository is moved or renamed.
-"${VENV_DIR}/bin/python" -m pip install --force-reinstall "${REPO_ROOT}"
+INSTALL_SOURCE="${MUKU_INSTALL_SOURCE:-${DEFAULT_INSTALL_SOURCE}}"
+BIN_DIR="${MUKU_BIN_DIR:-${HOME}/.local/bin}"
+PYTHON_BIN="${MUKU_PYTHON_BIN:-python3}"
+RUNTIME_ROOT="${MUKU_RUNTIME_ROOT:-${HOME}/.local/share/muku}"
 
 mkdir -p "${BIN_DIR}"
-for WRAPPER_NAME in muku video-downloade; do
-  WRAPPER="${BIN_DIR}/${WRAPPER_NAME}"
-  printf '#!/bin/sh\nexec "%s/bin/muku" "$@"\n' "${VENV_DIR}" > "${WRAPPER}"
-  chmod +x "${WRAPPER}"
-done
 
-muku doctor --json >/dev/null
-echo "Installed Muku CLI to ${BIN_DIR}/muku (alias ${BIN_DIR}/video-downloade)"
+verify_installation() {
+  local executable="${BIN_DIR}/muku"
+  if [[ ! -x "${executable}" ]]; then
+    echo "Muku installer error: ${executable} was not created." >&2
+    return 1
+  fi
+  "${executable}" --version
+  "${executable}" doctor --json >/dev/null
+}
+
+install_with_uv() {
+  UV_TOOL_BIN_DIR="${BIN_DIR}" uv tool install --force "${INSTALL_SOURCE}"
+}
+
+install_with_pipx() {
+  PIPX_BIN_DIR="${BIN_DIR}" pipx install --force "${INSTALL_SOURCE}"
+}
+
+install_with_atomic_venv() {
+  local versions_dir version_dir current_link next_link
+  versions_dir="${RUNTIME_ROOT}/versions"
+  current_link="${RUNTIME_ROOT}/current"
+  next_link="${RUNTIME_ROOT}/.current.$$"
+  mkdir -p "${versions_dir}"
+  version_dir="$(mktemp -d "${versions_dir}/.install.XXXXXX")"
+
+  cleanup_version() {
+    if [[ -d "${version_dir}" ]]; then
+      rm -rf -- "${version_dir}"
+    fi
+    rm -f -- "${next_link}"
+  }
+  trap cleanup_version EXIT
+
+  "${PYTHON_BIN}" -m venv "${version_dir}"
+  "${version_dir}/bin/python" -m pip install --upgrade pip
+  "${version_dir}/bin/python" -m pip install "${INSTALL_SOURCE}"
+  "${version_dir}/bin/muku" --version
+
+  ln -s "${version_dir}" "${next_link}"
+  mv -f "${next_link}" "${current_link}"
+  trap - EXIT
+
+  ln -sfn "${current_link}/bin/muku" "${BIN_DIR}/muku"
+  ln -sfn "${current_link}/bin/video-downloade" "${BIN_DIR}/video-downloade"
+}
+
+if command -v uv >/dev/null 2>&1; then
+  INSTALLER="uv tool"
+  install_with_uv
+elif command -v pipx >/dev/null 2>&1; then
+  INSTALLER="pipx"
+  install_with_pipx
+else
+  INSTALLER="isolated venv"
+  install_with_atomic_venv
+fi
+
+verify_installation
+
+echo "Installed Muku with ${INSTALLER}: ${BIN_DIR}/muku"
+if ! command -v ffmpeg >/dev/null 2>&1; then
+  echo "Warning: ffmpeg is not on PATH. Install ffmpeg before downloading or transcribing media." >&2
+fi
+case ":${PATH}:" in
+  *":${BIN_DIR}:"*) ;;
+  *) echo "Add ${BIN_DIR} to PATH, then open a new terminal." ;;
+esac

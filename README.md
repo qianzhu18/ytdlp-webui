@@ -190,33 +190,57 @@ docker compose exec ytdl-webui \
 
 ### 本地运行
 
-macOS / Linux：
+如果只需要独立 CLI，不必克隆仓库，也不要用 npm。推荐用 Python 工具安装器隔离依赖：
+
+```bash
+# 首选：uv
+uv tool install muku
+
+# 也可以使用 pipx
+pipx install muku
+
+muku --version
+muku setup
+muku doctor --json
+```
+
+`yt-dlp` 会随 Python 包安装；`ffmpeg` 是系统程序，需要另外安装，例如 macOS 使用
+`brew install ffmpeg`，Ubuntu/Debian 使用 `sudo apt install ffmpeg`。`muku doctor` 会明确检查它。
+
+如果只有 Python 和 pip，请先创建虚拟环境，避免把应用依赖写进系统 Python：
+
+```bash
+python3 -m venv ~/.local/share/muku/venv
+~/.local/share/muku/venv/bin/python -m pip install muku
+~/.local/share/muku/venv/bin/muku setup
+~/.local/share/muku/venv/bin/muku doctor --json
+```
+
+克隆仓库后也可以运行 `./scripts/install-muku-cli`。脚本依次选择 `uv tool`、`pipx`、隔离
+`venv`，默认只把入口写到 `~/.local/bin`，不会修改 Homebrew 目录，也不会依赖仓库继续存在。
+
+`muku setup` 是独立安装后的首次运行向导。默认只需输入一把 OpenRouter API Key，它会同时配置
+转写、清洗、解析稿和知识库稿，并且不会把完整 Key 回显到终端。自动化环境可以使用：
+
+```bash
+muku setup --api-key "$OPENROUTER_API_KEY" --download-dir "$PWD/muku-output" --json
+```
+
+需要修改源码时才使用开发安装：
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-pip install -e .
+python -m pip install -e .
 cp .env.example .env
 muku serve --port 5657
 ```
-
-如果需要一个不受仓库改名或移动影响的全局 CLI，使用：
-
-```bash
-./scripts/install-muku-cli
-```
-
-该脚本会把非 editable 的运行副本安装到
-`~/.local/share/muku-video-downloade/venv`，并刷新
-`/opt/homebrew/bin/muku` wrapper。开发环境仍可继续使用 `pip install -e .`。
 
 Windows PowerShell：
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
 python -m pip install -e .
 Copy-Item .env.example .env
 muku serve --port 5657
@@ -225,7 +249,7 @@ muku serve --port 5657
 如果你只想用 CLI：
 
 ```bash
-python -m webui.cli --help
+muku --help
 ```
 
 ## 能力矩阵

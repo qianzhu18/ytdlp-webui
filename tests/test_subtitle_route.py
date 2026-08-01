@@ -1215,14 +1215,16 @@ class TranscriptRoutingTests(unittest.TestCase):
             artifact_paths["raw_path"].write_text("raw transcript\n", encoding="utf-8")
             artifact_paths["markdown_path"].write_text("# Sample\n\n## 清洗稿\n\nclean transcript\n", encoding="utf-8")
             artifact_paths["meta_path"].write_text(
-                (
-                    '{'
-                    f'"artifact_base_path": "{str(base_path).replace("\\", "\\\\")}", '
-                    '"title": "Sample", '
-                    '"source_url": "https://example.com/video", '
-                    '"platform": "YouTube"'
-                    '}\n'
-                ),
+                json.dumps(
+                    {
+                        "artifact_base_path": str(base_path),
+                        "title": "Sample",
+                        "source_url": "https://example.com/video",
+                        "platform": "YouTube",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
                 encoding="utf-8",
             )
 
@@ -1252,13 +1254,15 @@ class TranscriptRoutingTests(unittest.TestCase):
             artifact_paths = web_app.build_artifact_paths(base_path)
             artifact_paths["markdown_path"].write_text("# Sample\n\ncontent\n", encoding="utf-8")
             artifact_paths["meta_path"].write_text(
-                (
-                    '{'
-                    f'"artifact_base_path": "{str(base_path).replace("\\", "\\\\")}", '
-                    '"title": "Sample", '
-                    '"source_url": "https://example.com/video"'
-                    '}\n'
-                ),
+                json.dumps(
+                    {
+                        "artifact_base_path": str(base_path),
+                        "title": "Sample",
+                        "source_url": "https://example.com/video",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
                 encoding="utf-8",
             )
 
@@ -1574,7 +1578,10 @@ class TranscriptRoutingTests(unittest.TestCase):
 
             with mock.patch.dict(
                 web_cli.os.environ,
-                {"VIDEO_DOWNLOADE_CONFIG_DIR": str(config_dir)},
+                {
+                    "VIDEO_DOWNLOADE_CONFIG_DIR": str(config_dir),
+                    "OPENROUTER_API_KEY": "",
+                },
                 clear=False,
             ):
                 result = runner.invoke(
@@ -1599,6 +1606,58 @@ class TranscriptRoutingTests(unittest.TestCase):
         self.assertEqual(payload["openrouter_transcription_model"], "openai/mock-transcribe")
         self.assertFalse(payload["enable_knowledge_draft"])
         self.assertEqual(saved["download_dir"], str(output_dir.resolve()))
+
+    def test_setup_command_configures_the_full_pipeline_with_one_secret(self) -> None:
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir) / "config"
+            output_dir = Path(temp_dir) / "downloads"
+
+            with mock.patch.dict(
+                web_cli.os.environ,
+                {
+                    "VIDEO_DOWNLOADE_CONFIG_DIR": str(config_dir),
+                    "OPENROUTER_API_KEY": "",
+                },
+                clear=False,
+            ):
+                result = runner.invoke(
+                    web_cli.main,
+                    [
+                        "setup",
+                        "--api-key",
+                        "sk-shared-first-run-secret",
+                        "--download-dir",
+                        str(output_dir),
+                        "--json",
+                    ],
+                )
+
+                self.assertEqual(result.exit_code, 0, msg=result.output)
+                saved = json.loads((config_dir / "settings.json").read_text(encoding="utf-8"))
+                web_app.apply_runtime_settings({})
+
+        payload = json.loads(result.output)
+        self.assertNotIn("sk-shared-first-run-secret", result.output)
+        self.assertTrue(payload["openrouter_api_key_configured"])
+        self.assertTrue(payload["ai_cleanup_api_key_configured"])
+        self.assertTrue(payload["article_draft_api_key_configured"])
+        self.assertTrue(payload["knowledge_draft_api_key_configured"])
+        self.assertEqual(payload["download_dir"], str(output_dir.resolve()))
+        self.assertIn("muku doctor --json", payload["next_steps"])
+        self.assertEqual(
+            {
+                saved["openrouter_api_key"],
+                saved["ai_cleanup_api_key"],
+                saved["article_draft_api_key"],
+                saved["knowledge_draft_api_key"],
+            },
+            {"sk-shared-first-run-secret"},
+        )
+        self.assertTrue(saved["enable_ai_cleanup"])
+        self.assertTrue(saved["enable_article_draft"])
+        self.assertTrue(saved["enable_knowledge_draft"])
 
     def test_start_accepts_share_text_payload(self) -> None:
         share_text = (
