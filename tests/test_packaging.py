@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -25,6 +28,21 @@ class PackageCliTests(unittest.TestCase):
         self.assertTrue(report["yt_dlp_found"])
         self.assertFalse(report["transcript_capture_ready"])
         self.assertFalse(report["knowledge_capture_ready"])
+
+    def test_module_help_uses_utf8_when_parent_encoding_cannot_render_chinese(self) -> None:
+        environment = os.environ.copy()
+        environment["PYTHONIOENCODING"] = "cp1252"
+
+        result = subprocess.run(
+            [sys.executable, "-m", "webui.cli", "--help"],
+            cwd=REPO_ROOT,
+            env=environment,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
+        self.assertIn("幕库 Muku".encode(), result.stdout)
 
 
 class InstallerPolicyTests(unittest.TestCase):

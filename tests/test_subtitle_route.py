@@ -1215,14 +1215,16 @@ class TranscriptRoutingTests(unittest.TestCase):
             artifact_paths["raw_path"].write_text("raw transcript\n", encoding="utf-8")
             artifact_paths["markdown_path"].write_text("# Sample\n\n## 清洗稿\n\nclean transcript\n", encoding="utf-8")
             artifact_paths["meta_path"].write_text(
-                (
-                    '{'
-                    f'"artifact_base_path": "{str(base_path).replace("\\", "\\\\")}", '
-                    '"title": "Sample", '
-                    '"source_url": "https://example.com/video", '
-                    '"platform": "YouTube"'
-                    '}\n'
-                ),
+                json.dumps(
+                    {
+                        "artifact_base_path": str(base_path),
+                        "title": "Sample",
+                        "source_url": "https://example.com/video",
+                        "platform": "YouTube",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
                 encoding="utf-8",
             )
 
@@ -1252,13 +1254,15 @@ class TranscriptRoutingTests(unittest.TestCase):
             artifact_paths = web_app.build_artifact_paths(base_path)
             artifact_paths["markdown_path"].write_text("# Sample\n\ncontent\n", encoding="utf-8")
             artifact_paths["meta_path"].write_text(
-                (
-                    '{'
-                    f'"artifact_base_path": "{str(base_path).replace("\\", "\\\\")}", '
-                    '"title": "Sample", '
-                    '"source_url": "https://example.com/video"'
-                    '}\n'
-                ),
+                json.dumps(
+                    {
+                        "artifact_base_path": str(base_path),
+                        "title": "Sample",
+                        "source_url": "https://example.com/video",
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n",
                 encoding="utf-8",
             )
 

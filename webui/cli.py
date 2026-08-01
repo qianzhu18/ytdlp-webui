@@ -35,6 +35,24 @@ AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".flac", ".opus", ".aac", ".ogg", ".
 OUTPUT_CHOICES = ("text", "json", "paths")
 _UNSET = object()
 
+
+def _configure_cli_stdio() -> None:
+    for stream_name in ("stdout", "stderr"):
+        stream = getattr(sys, stream_name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        encoding = str(getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if not callable(reconfigure) or encoding in {"utf8", "utf8sig"}:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (OSError, ValueError):
+            continue
+
+
+if __name__ == "__main__" or Path(sys.argv[0]).stem.lower() in {"muku", "video-downloade"}:
+    _configure_cli_stdio()
+
+
 try:
     MUKU_VERSION = version("muku")
 except PackageNotFoundError:
