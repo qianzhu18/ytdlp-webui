@@ -194,12 +194,13 @@ docker compose exec ytdl-webui \
 
 ```bash
 # 首选：uv
-uv tool install git+https://github.com/qianzhu18/Muku.git
+uv tool install muku
 
 # 也可以使用 pipx
-pipx install git+https://github.com/qianzhu18/Muku.git
+pipx install muku
 
 muku --version
+muku setup
 muku doctor --json
 ```
 
@@ -210,13 +211,20 @@ muku doctor --json
 
 ```bash
 python3 -m venv ~/.local/share/muku/venv
-~/.local/share/muku/venv/bin/python -m pip install git+https://github.com/qianzhu18/Muku.git
+~/.local/share/muku/venv/bin/python -m pip install muku
+~/.local/share/muku/venv/bin/muku setup
 ~/.local/share/muku/venv/bin/muku doctor --json
 ```
 
 克隆仓库后也可以运行 `./scripts/install-muku-cli`。脚本依次选择 `uv tool`、`pipx`、隔离
 `venv`，默认只把入口写到 `~/.local/bin`，不会修改 Homebrew 目录，也不会依赖仓库继续存在。
-发布到 PyPI 后，Git URL 可以进一步简化为 `uv tool install muku` 或 `pipx install muku`。
+
+`muku setup` 是独立安装后的首次运行向导。默认只需输入一把 OpenRouter API Key，它会同时配置
+转写、清洗、解析稿和知识库稿，并且不会把完整 Key 回显到终端。自动化环境可以使用：
+
+```bash
+muku setup --api-key "$OPENROUTER_API_KEY" --download-dir "$PWD/muku-output" --json
+```
 
 需要修改源码时才使用开发安装：
 

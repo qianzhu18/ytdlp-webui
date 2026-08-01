@@ -44,6 +44,15 @@ class PackageCliTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode("utf-8", errors="replace"))
         self.assertIn("幕库 Muku".encode(), result.stdout)
 
+    def test_doctor_next_steps_use_the_muku_command_name(self) -> None:
+        report = web_cli._doctor_report()
+        report["openrouter_key_configured"] = False
+
+        steps = web_cli._doctor_next_steps(report)
+
+        self.assertTrue(any("muku doctor --json" in step for step in steps))
+        self.assertFalse(any("video-downloade" in step for step in steps))
+
 
 class InstallerPolicyTests(unittest.TestCase):
     def test_installer_uses_python_tool_installers(self) -> None:

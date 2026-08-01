@@ -182,7 +182,7 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
     if not report["yt_dlp_found"]:
         steps.append("Install the yt-dlp Python dependency in the same environment as Muku.")
     if report["transcription_enabled"] and not report["openrouter_key_configured"]:
-        steps.append("Configure OPENROUTER_API_KEY, then run `video-downloade doctor --json` again.")
+        steps.append("Run `muku setup` or configure OPENROUTER_API_KEY, then run `muku doctor --json` again.")
     if report["cleanup_enabled"] and not report["cleanup_key_configured"]:
         steps.append("Configure AI_CLEANUP_API_KEY or disable cleanup for first-run verification.")
     if report["article_enabled"] and not report["article_key_configured"]:
@@ -192,7 +192,7 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
     if not bool(report["subtitle_auth_configured"]):
         if report["runtime_environment"] == "container":
             steps.append(
-                "Platform cookies are not configured yet. In Docker, prefer mounting platform cookies.txt files and setting DOCKER_*_COOKIES_PATH before rerunning `video-downloade doctor --json`."
+                "Platform cookies are not configured yet. In Docker, prefer mounting platform cookies.txt files and setting DOCKER_*_COOKIES_PATH before rerunning `muku doctor --json`."
             )
         else:
             steps.append(
@@ -205,7 +205,7 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
                 continue
             if state.get("status") == "missing_file":
                 steps.append(
-                    f"{platform} auth points to a missing cookies.txt: {state.get('source_path')}. Update {state.get('source_config_key')} and rerun `video-downloade doctor --json`."
+                    f"{platform} auth points to a missing cookies.txt: {state.get('source_path')}. Update {state.get('source_config_key')} and rerun `muku doctor --json`."
                 )
                 continue
             if state.get("status") == "invalid":
@@ -222,7 +222,7 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
                     f"{platform} auth is configured through browser cookies. Doctor marks this as configured-only; run one real URL or export cookies.txt if you need stronger verification."
                 )
     if not steps:
-        steps.append("Core checks look good. Next try `video-downloade capture URL --json` or open the Web UI with `video-downloade serve`.")
+        steps.append("Core checks look good. Next try `muku capture URL --json` or open the Web UI with `muku serve`.")
     return steps
 
 
@@ -1537,6 +1537,83 @@ def config_command(
 
     for key, value in report.items():
         click.echo(f"{key}: {value}")
+
+
+@main.command("setup")
+@click.option(
+    "--api-key",
+    "openrouter_api_key",
+    envvar="OPENROUTER_API_KEY",
+    help="供转写、清洗、解析和知识库阶段共用的 OpenRouter API Key。",
+)
+@click.option(
+    "--base-url",
+    default="https://openrouter.ai/api/v1",
+    show_default=True,
+    help="OpenRouter 或兼容服务的 Base URL。",
+)
+@click.option(
+    "--download-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    help="Markdown 和媒体产物的默认保存目录；默认沿用当前设置。",
+)
+@click.option("--json", "as_json", is_flag=True, help="输出机器可读 JSON。")
+def setup_command(
+    openrouter_api_key: str | None,
+    base_url: str,
+    download_dir: Path | None,
+    as_json: bool,
+) -> None:
+    """首次运行向导：用一把 Key 配好完整 Video-to-Markdown 链路。"""
+    if openrouter_api_key is None:
+        if as_json:
+            raise click.ClickException("使用 --json 时请传 --api-key，或设置 OPENROUTER_API_KEY。")
+        openrouter_api_key = click.prompt("OpenRouter API Key", hide_input=True)
+
+    shared_key = openrouter_api_key.strip()
+    if not shared_key:
+        raise click.ClickException("OpenRouter API Key 不能为空。")
+
+    normalized_base_url = base_url.strip().rstrip("/")
+    if not normalized_base_url:
+        raise click.ClickException("Base URL 不能为空。")
+
+    updates: dict[str, object] = {
+        "openrouter_base_url": normalized_base_url,
+        "openrouter_api_key": shared_key,
+        "enable_ai_cleanup": True,
+        "ai_cleanup_base_url": normalized_base_url,
+        "ai_cleanup_api_key": shared_key,
+        "enable_article_draft": True,
+        "article_draft_base_url": normalized_base_url,
+        "article_draft_api_key": shared_key,
+        "enable_knowledge_draft": True,
+        "knowledge_draft_base_url": normalized_base_url,
+        "knowledge_draft_api_key": shared_key,
+    }
+    if download_dir is not None:
+        updates["download_dir"] = str(download_dir)
+
+    try:
+        web_app.persist_runtime_settings(updates, partial=True)
+        report = web_app.masked_runtime_settings()
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    next_steps = [
+        "muku doctor --json",
+        'muku capture "VIDEO_URL" --knowledge --json',
+    ]
+    if as_json:
+        click.echo(json.dumps({**report, "next_steps": next_steps}, ensure_ascii=False, indent=2))
+        return
+
+    click.echo(f"Muku setup saved: {report['settings_path']}")
+    click.echo(f"Download directory: {report['download_dir']}")
+    click.echo("API Key: configured for transcription, cleanup, article, and knowledge stages")
+    click.echo("Next steps:")
+    for step in next_steps:
+        click.echo(f"  {step}")
 
 
 @main.command("capture")

@@ -8,6 +8,9 @@
 ## Primary Commands
 
 ```bash
+# 首次安装：一把 OpenRouter Key 配好完整链路
+muku setup
+
 # URL -> 逐字稿 + 解析稿 + 知识库稿
 muku capture "https://www.bilibili.com/video/BVxxxx" --knowledge --json
 
@@ -54,6 +57,7 @@ muku config --json
 
 ## Runtime Config
 
+- 全新独立安装且尚未配置时，先运行 `muku setup`；它会用一把 OpenRouter Key 配好四个处理阶段。
 - 如果要先把默认下载目录、转写模型、解析模型或知识库模型配好，优先调用 `muku config --json` 查看现状。
 - 需要写入默认配置时，用 `muku config --download-dir ... --transcription-model ... --cleanup-model ... --article-model ... --knowledge-model ... --json`。
 - Docker 场景下，下载目录应写容器内路径，例如 `/downloads/default`；宿主机真实路径由 Compose 的卷映射决定。
