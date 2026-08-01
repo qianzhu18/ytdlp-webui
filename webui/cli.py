@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, version
 import json
 import os
 import shutil
@@ -33,6 +34,11 @@ PRESET_CHOICES = (DEFAULT_VIDEO_PRESET, DEFAULT_AUDIO_PRESET)
 AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".flac", ".opus", ".aac", ".ogg", ".wma"}
 OUTPUT_CHOICES = ("text", "json", "paths")
 _UNSET = object()
+
+try:
+    MUKU_VERSION = version("muku")
+except PackageNotFoundError:
+    MUKU_VERSION = "0.2.0"
 
 
 def _normalize_output_mode(output: str, as_json: bool) -> str:
@@ -68,6 +74,8 @@ def _doctor_report() -> dict[str, object]:
     bilibili_auth = web_app.platform_auth_state("Bilibili")
     douyin_auth = web_app.platform_auth_state("Douyin")
     settings = web_app.current_runtime_settings()
+    ffmpeg_available = shutil.which(web_app.FFMPEG_BIN) is not None
+    yt_dlp_available = getattr(web_app, "yt_dlp", None) is not None
     return {
         "settings_path": settings["settings_path"],
         "settings_dir": settings["settings_dir"],
@@ -76,8 +84,8 @@ def _doctor_report() -> dict[str, object]:
         "download_root_dir": settings["download_root_dir"],
         "download_root_locked": settings["download_root_locked"],
         "ffmpeg_bin": web_app.FFMPEG_BIN,
-        "ffmpeg_found": shutil.which(web_app.FFMPEG_BIN) is not None,
-        "yt_dlp_found": shutil.which("yt-dlp") is not None,
+        "ffmpeg_found": ffmpeg_available,
+        "yt_dlp_found": yt_dlp_available,
         "transcript_route_strategy": "subtitle_first_then_audio_fallback",
         "subtitle_auth": subtitle_auth,
         "subtitle_auth_configured": bool(subtitle_auth["configured"]),
@@ -132,12 +140,14 @@ def _doctor_report() -> dict[str, object]:
         "douyin_cookies_exists": bool(web_app.DOUYIN_COOKIES_PATH) and Path(web_app.DOUYIN_COOKIES_PATH).exists(),
         "douyin_cookies_from_browser": web_app.DOUYIN_COOKIES_FROM_BROWSER or None,
         "transcript_capture_ready": (
-            shutil.which("yt-dlp") is not None
+            ffmpeg_available
+            and yt_dlp_available
             and web_app.ENABLE_TRANSCRIPTION
             and bool(web_app.transcribe_audio.__globals__.get("OPENROUTER_API_KEY"))
         ),
         "knowledge_capture_ready": (
-            shutil.which("yt-dlp") is not None
+            ffmpeg_available
+            and yt_dlp_available
             and web_app.ENABLE_TRANSCRIPTION
             and bool(web_app.transcribe_audio.__globals__.get("OPENROUTER_API_KEY"))
             and cleanup_backend.ENABLE_KNOWLEDGE_DRAFT
@@ -152,7 +162,7 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
     if not report["ffmpeg_found"]:
         steps.append(f"Install ffmpeg or point FFMPEG_BIN to the executable. Current value: {report['ffmpeg_bin']}")
     if not report["yt_dlp_found"]:
-        steps.append("Install yt-dlp and make sure it is available on PATH.")
+        steps.append("Install the yt-dlp Python dependency in the same environment as Muku.")
     if report["transcription_enabled"] and not report["openrouter_key_configured"]:
         steps.append("Configure OPENROUTER_API_KEY, then run `video-downloade doctor --json` again.")
     if report["cleanup_enabled"] and not report["cleanup_key_configured"]:
@@ -1375,8 +1385,9 @@ def _run_knowledge_jobs(
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
+@click.version_option(MUKU_VERSION, prog_name="muku")
 def main() -> None:
-    """Downloader by Qianzhu 的 CLI 入口。"""
+    """幕库 Muku：把知识视频与本地音频转成 Markdown 知识资产。"""
 
 
 @main.command("config")
@@ -2369,4 +2380,4 @@ def serve_command(host: str, port: int) -> None:
 
 
 if __name__ == "__main__":
-    main(prog_name="video-downloade")
+    main(prog_name="muku")

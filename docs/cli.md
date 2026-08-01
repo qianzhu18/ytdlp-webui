@@ -13,15 +13,38 @@
 
 ## 安装
 
-```bash
-pip install -e .
-```
-
-或者直接运行模块：
+日常使用推荐安装成独立工具。它拥有自己的 Python 环境，可以在任意项目目录调用：
 
 ```bash
-python -m webui.cli --help
+uv tool install git+https://github.com/qianzhu18/Muku.git
+# 或者
+pipx install git+https://github.com/qianzhu18/Muku.git
 ```
+
+没有 `uv` / `pipx` 时，可在独立虚拟环境中使用标准 pip：
+
+```bash
+python3 -m venv ~/.local/share/muku/venv
+~/.local/share/muku/venv/bin/python -m pip install git+https://github.com/qianzhu18/Muku.git
+~/.local/share/muku/venv/bin/muku --version
+```
+
+克隆仓库后也可以运行自动安装器：
+
+```bash
+./scripts/install-muku-cli
+```
+
+只有参与开发时才使用 editable 安装：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
+
+Muku 是 Python 应用，不需要 npm。npm 只适用于用 Node.js 发布和运行的 CLI；为本项目再套一层 npm
+只会多出一套版本、缓存和 PATH 管理。发布到 PyPI 后，可把 Git URL 简化为包名 `muku`。
 
 建议第一次接入前先跑：
 
@@ -29,6 +52,10 @@ python -m webui.cli --help
 muku doctor --json
 muku config --json
 ```
+
+Python 安装会自动带上 `yt-dlp` 模块，但媒体转换依赖系统级 `ffmpeg`。macOS 可运行
+`brew install ffmpeg`，Ubuntu/Debian 可运行 `sudo apt install ffmpeg`；缺失时 `doctor` 会把
+`transcript_capture_ready` 和 `knowledge_capture_ready` 标记为 `false`。
 
 ## 最推荐的工作流
 
