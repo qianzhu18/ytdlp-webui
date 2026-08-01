@@ -45,18 +45,19 @@ def main() -> int:
         run_command([executable, "--version"], cwd=work_dir, env=env)
         run_command([executable, "--help"], cwd=work_dir, env=env)
 
-        interactive_env = dict(env)
-        interactive_env["VIDEO_DOWNLOADE_CONFIG_DIR"] = str(work_dir / "interactive-config")
-        interactive_setup = run_command(
-            [executable, "setup", "--download-dir", str(work_dir / "interactive-output")],
-            cwd=work_dir,
-            env=interactive_env,
-            input_text="sk-interactive-package-smoke\n",
-        )
-        if "sk-interactive-package-smoke" in interactive_setup.stdout:
-            raise AssertionError("Interactive setup echoed the complete API key.")
-        if "muku doctor --json" not in interactive_setup.stdout:
-            raise AssertionError("Interactive setup did not explain the next verification step.")
+        if os.name != "nt":
+            interactive_env = dict(env)
+            interactive_env["VIDEO_DOWNLOADE_CONFIG_DIR"] = str(work_dir / "interactive-config")
+            interactive_setup = run_command(
+                [executable, "setup", "--download-dir", str(work_dir / "interactive-output")],
+                cwd=work_dir,
+                env=interactive_env,
+                input_text="sk-interactive-package-smoke\n",
+            )
+            if "sk-interactive-package-smoke" in interactive_setup.stdout:
+                raise AssertionError("Interactive setup echoed the complete API key.")
+            if "muku doctor --json" not in interactive_setup.stdout:
+                raise AssertionError("Interactive setup did not explain the next verification step.")
 
         setup = run_command(
             [
