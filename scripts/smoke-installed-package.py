@@ -22,8 +22,11 @@ def run_command(
         cwd=cwd,
         env=env,
         text=True,
+        encoding="utf-8",
+        errors="strict",
         capture_output=True,
         input=input_text,
+        timeout=90,
         check=True,
     )
 
