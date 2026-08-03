@@ -56,7 +56,7 @@ if __name__ == "__main__" or Path(sys.argv[0]).stem.lower() in {"muku", "video-d
 try:
     MUKU_VERSION = version("muku")
 except PackageNotFoundError:
-    MUKU_VERSION = "0.2.1"
+    MUKU_VERSION = "0.2.2"
 
 
 def _normalize_output_mode(output: str, as_json: bool) -> str:

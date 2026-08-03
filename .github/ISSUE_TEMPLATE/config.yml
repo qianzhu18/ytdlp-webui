@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: mailto:2729478828@qq.com
+    about: 安全漏洞请私下报告，不要创建公开 Issue
+  - name: Usage documentation
+    url: https://github.com/qianzhu18/Muku/blob/main/docs/cli.md
+    about: 提问前先查看 CLI、配置和排障文档
