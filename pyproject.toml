@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "muku"
-version = "0.2.1"
-description = "Muku turns knowledge-heavy video links and local audio into Markdown transcript and knowledge-base assets."
+version = "0.2.2"
+description = "Local-first Video-to-Markdown for knowledge videos, local audio, and AI-agent workflows."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
