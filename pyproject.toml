@@ -33,7 +33,7 @@ dependencies = [
   "aiohttp>=3.10,<4",
   "gmssl>=3.2.2",
   "yt-dlp>=2024.10.0",
-  "click>=8.1,<9",
+  "click>=8.4.2,<9",
 ]
 
 [project.scripts]
