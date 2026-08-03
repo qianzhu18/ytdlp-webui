@@ -32,7 +32,7 @@ dependencies = [
   "requests>=2.32,<3",
   "aiohttp>=3.10,<4",
   "gmssl>=3.2.2",
-  "yt-dlp>=2024.10.0",
+  "yt-dlp>=2026.7.4",
   "click>=8.1,<9",
 ]
 
