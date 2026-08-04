@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEFAULT_REPO_URL="https://github.com/qianzhu18/Muku.git"
+REPO_URL="${MUKU_REPO_URL:-${DEFAULT_REPO_URL}}"
+REPO_BRANCH="${MUKU_REPO_BRANCH:-main}"
+TEMP_ROOT=""
+REPO_ROOT=""
+
+cleanup() {
+  if [[ -n "${TEMP_ROOT}" && -d "${TEMP_ROOT}" ]]; then
+    rm -rf -- "${TEMP_ROOT}"
+  fi
+}
+trap cleanup EXIT
+
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+if [[ -f "${SCRIPT_PATH}" ]]; then
+  SCRIPT_DIR="$(cd "$(dirname "${SCRIPT_PATH}")" && pwd -P)"
+  CANDIDATE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
+  if [[ -f "${CANDIDATE_ROOT}/pyproject.toml" && -x "${SCRIPT_DIR}/install-muku-cli" ]]; then
+    REPO_ROOT="${CANDIDATE_ROOT}"
+  fi
+fi
+
+if [[ -z "${REPO_ROOT}" ]]; then
+  command -v curl >/dev/null 2>&1 || {
+    echo "Muku installer requires curl when run outside a checked-out repository." >&2
+    exit 1
+  }
+  command -v tar >/dev/null 2>&1 || {
+    echo "Muku installer requires tar when run outside a checked-out repository." >&2
+    exit 1
+  }
+
+  TEMP_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/muku-install.XXXXXX")"
+  ARCHIVE_PATH="${TEMP_ROOT}/muku.tar.gz"
+  ARCHIVE_URL="${REPO_URL%.git}/archive/refs/heads/${REPO_BRANCH}.tar.gz"
+  curl --fail --silent --show-error --location --retry 3 "${ARCHIVE_URL}" -o "${ARCHIVE_PATH}"
+  tar -xzf "${ARCHIVE_PATH}" -C "${TEMP_ROOT}"
+  REPO_ROOT="$(find "${TEMP_ROOT}" -mindepth 1 -maxdepth 1 -type d -name 'Muku-*' -print -quit)"
+  if [[ -z "${REPO_ROOT}" ]]; then
+    echo "Muku installer could not find the downloaded repository." >&2
+    exit 1
+  fi
+fi
+
+MUKU_INSTALL_SOURCE="${MUKU_INSTALL_SOURCE:-${REPO_ROOT}}" \
+  "${REPO_ROOT}/scripts/install-muku-cli"
+
+SKILL_ROOT="${MUKU_CODEX_HOME:-${CODEX_HOME:-${HOME}/.codex}}"
+"${REPO_ROOT}/scripts/install-muku-skill" "${SKILL_ROOT}"
+
+echo "Installed Muku CLI and muku-video-to-md Skill."
+echo "Next step: muku quickstart"

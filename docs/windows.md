@@ -12,6 +12,15 @@
 
 如果你已经熟悉 Python，再看 [README.md](../README.md) 里的本地 CLI 路径。
 
+如果只需要本地 CLI 和 Codex Skill，也可以在 PowerShell 中一键安装：
+
+```powershell
+irm https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku.ps1 | iex
+muku quickstart
+```
+
+安装器不会自动安装 ffmpeg；如果缺少它，`muku quickstart` 会提示可用的 `winget` 命令。
+
 ## 官方建议环境
 
 - Windows 11

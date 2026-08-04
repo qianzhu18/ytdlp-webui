@@ -39,7 +39,21 @@ muku capture \
 
 ## 快速安装到 Codex
 
-推荐直接运行：
+如果用户还没有安装 Muku，推荐一条命令同时安装 CLI 和 Skill：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku | bash
+muku quickstart
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku.ps1 | iex
+muku quickstart
+```
+
+如果 CLI 已经安装，只需要安装 Skill：
 
 ```bash
 ./scripts/install-muku-skill

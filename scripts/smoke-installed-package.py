@@ -47,6 +47,7 @@ def main() -> int:
 
         run_command([executable, "--version"], cwd=work_dir, env=env)
         run_command([executable, "--help"], cwd=work_dir, env=env)
+        run_command([executable, "quickstart", "--help"], cwd=work_dir, env=env)
 
         if os.name != "nt":
             interactive_env = dict(env)

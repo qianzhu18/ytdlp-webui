@@ -44,7 +44,24 @@ Windows 用户可以先看 [Windows 安装指南](https://github.com/qianzhu18/M
 
 ### 安装 CLI
 
-推荐使用隔离式 Python 工具安装，不依赖仓库，也不需要 npm：
+macOS / Linux 用户可以直接用一条命令安装 CLI 和 AI-agent Skill：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku | bash
+muku quickstart
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku.ps1 | iex
+muku quickstart
+```
+
+安装器不会替用户创建 API Key，也不会自动读取或上传 Cookies。`muku quickstart` 会安全地提示输入
+自己的 OpenRouter Key，配置默认目录并启动本地 Web UI；如果缺少 ffmpeg，会显示对应系统的安装命令。
+
+如果只想安装 CLI，也可以使用隔离式 Python 工具安装，不依赖仓库，也不需要 npm：
 
 ```bash
 # 二选一
@@ -161,7 +178,8 @@ muku capture \
 
 ## 安装 AI Skill
 
-Skill 负责告诉 agent 何时以及如何调用 Muku CLI；运行时仍需先安装上面的 `muku` Python 包。
+Skill 负责告诉 agent 何时以及如何调用 Muku CLI；上面的一键安装器会同时安装两者。
+如果只安装了 Python 包，也可以单独安装 Skill：
 
 ```bash
 git clone https://github.com/qianzhu18/Muku.git

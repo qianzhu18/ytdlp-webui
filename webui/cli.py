@@ -6,9 +6,11 @@ from importlib.metadata import PackageNotFoundError, version
 import json
 import os
 import shutil
+import socket
 import sys
 import threading
 import uuid
+import webbrowser
 from pathlib import Path
 
 import click
@@ -56,7 +58,7 @@ if __name__ == "__main__" or Path(sys.argv[0]).stem.lower() in {"muku", "video-d
 try:
     MUKU_VERSION = version("muku")
 except PackageNotFoundError:
-    MUKU_VERSION = "0.2.2"
+    MUKU_VERSION = "0.2.3"
 
 
 def _normalize_output_mode(output: str, as_json: bool) -> str:
@@ -292,6 +294,99 @@ def _format_doctor_report(report: dict[str, object]) -> str:
     ]
     lines.extend(f"- {step}" for step in _doctor_next_steps(report))
     return "\n".join(lines)
+
+
+def _build_setup_updates(
+    *,
+    openrouter_api_key: str,
+    base_url: str,
+    download_dir: Path | None = None,
+) -> dict[str, object]:
+    normalized_key = openrouter_api_key.strip()
+    if not normalized_key:
+        raise ValueError("OpenRouter API Key 不能为空。")
+
+    normalized_base_url = base_url.strip().rstrip("/")
+    if not normalized_base_url:
+        raise ValueError("Base URL 不能为空。")
+
+    updates: dict[str, object] = {
+        "openrouter_base_url": normalized_base_url,
+        "openrouter_api_key": normalized_key,
+        "enable_ai_cleanup": True,
+        "ai_cleanup_base_url": normalized_base_url,
+        "ai_cleanup_api_key": normalized_key,
+        "enable_article_draft": True,
+        "article_draft_base_url": normalized_base_url,
+        "article_draft_api_key": normalized_key,
+        "enable_knowledge_draft": True,
+        "knowledge_draft_base_url": normalized_base_url,
+        "knowledge_draft_api_key": normalized_key,
+    }
+    if download_dir is not None:
+        updates["download_dir"] = str(download_dir)
+    return updates
+
+
+def _quickstart_download_dir(explicit_dir: Path | None) -> Path:
+    if explicit_dir is not None:
+        return explicit_dir
+
+    saved_settings = web_app.load_settings()
+    saved_dir = str(saved_settings.get("download_dir") or "").strip()
+    if saved_dir:
+        return Path(saved_dir)
+
+    return Path.home() / "Downloads" / "Muku"
+
+
+def _port_is_available(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def _ffmpeg_install_hint() -> str:
+    if sys.platform == "darwin":
+        return "brew install ffmpeg"
+    if sys.platform.startswith("linux"):
+        return "sudo apt install ffmpeg"
+    if sys.platform == "win32":
+        return "winget install Gyan.FFmpeg"
+    return "Install ffmpeg and make it available on PATH"
+
+
+def _quickstart_dependency_error(report: dict[str, object]) -> str | None:
+    problems: list[str] = []
+    if not bool(report.get("ffmpeg_found")):
+        problems.append(
+            "ffmpeg is missing. Install it with `{}`, then rerun `muku quickstart`.".format(
+                _ffmpeg_install_hint()
+            )
+        )
+    if not bool(report.get("yt_dlp_found")):
+        problems.append(
+            "The yt-dlp dependency is missing. Reinstall or upgrade Muku, then rerun `muku quickstart`."
+        )
+    return "\n".join(problems) if problems else None
+
+
+def _schedule_browser_open(url: str) -> None:
+    def open_url() -> None:
+        try:
+            opened = webbrowser.open(url)
+            if not opened:
+                click.echo(f"Browser did not open automatically. Open {url} manually.")
+        except Exception as exc:  # pragma: no cover - browser backends vary by desktop
+            click.echo(f"Browser did not open automatically ({exc}). Open {url} manually.")
+
+    browser_timer = threading.Timer(0.5, open_url)
+    browser_timer.daemon = True
+    browser_timer.start()
 
 
 def _collect_line_inputs(
@@ -1574,29 +1669,14 @@ def setup_command(
             raise click.ClickException("使用 --json 时请传 --api-key，或设置 OPENROUTER_API_KEY。")
         openrouter_api_key = click.prompt("OpenRouter API Key", hide_input=True)
 
-    shared_key = openrouter_api_key.strip()
-    if not shared_key:
-        raise click.ClickException("OpenRouter API Key 不能为空。")
-
-    normalized_base_url = base_url.strip().rstrip("/")
-    if not normalized_base_url:
-        raise click.ClickException("Base URL 不能为空。")
-
-    updates: dict[str, object] = {
-        "openrouter_base_url": normalized_base_url,
-        "openrouter_api_key": shared_key,
-        "enable_ai_cleanup": True,
-        "ai_cleanup_base_url": normalized_base_url,
-        "ai_cleanup_api_key": shared_key,
-        "enable_article_draft": True,
-        "article_draft_base_url": normalized_base_url,
-        "article_draft_api_key": shared_key,
-        "enable_knowledge_draft": True,
-        "knowledge_draft_base_url": normalized_base_url,
-        "knowledge_draft_api_key": shared_key,
-    }
-    if download_dir is not None:
-        updates["download_dir"] = str(download_dir)
+    try:
+        updates = _build_setup_updates(
+            openrouter_api_key=openrouter_api_key,
+            base_url=base_url,
+            download_dir=download_dir,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     try:
         web_app.persist_runtime_settings(updates, partial=True)
@@ -1618,6 +1698,85 @@ def setup_command(
     click.echo("Next steps:")
     for step in next_steps:
         click.echo(f"  {step}")
+
+
+@main.command("quickstart")
+@click.option(
+    "--api-key",
+    "openrouter_api_key",
+    help="可选的 OpenRouter API Key；没有现有配置时会安全地交互输入。",
+)
+@click.option(
+    "--download-dir",
+    type=click.Path(path_type=Path, file_okay=False),
+    help="Markdown 和媒体产物的默认保存目录。",
+)
+@click.option(
+    "--port",
+    type=click.IntRange(1, 65535),
+    default=5657,
+    show_default=True,
+    help="本地 Web UI 端口。",
+)
+@click.option("--no-browser", is_flag=True, help="启动后不自动打开浏览器。")
+def quickstart_command(
+    openrouter_api_key: str | None,
+    download_dir: Path | None,
+    port: int,
+    no_browser: bool,
+) -> None:
+    """用最少配置启动本地 Web UI。"""
+    current_settings = web_app.current_runtime_settings()
+    configured_key = str(current_settings.get("openrouter_api_key") or "").strip()
+
+    if openrouter_api_key is None:
+        openrouter_api_key = configured_key
+    else:
+        openrouter_api_key = openrouter_api_key.strip()
+        if not openrouter_api_key:
+            raise click.ClickException("OpenRouter API Key 不能为空。")
+
+    if not openrouter_api_key:
+        openrouter_api_key = click.prompt("OpenRouter API Key", hide_input=True).strip()
+
+    base_url = str(current_settings.get("openrouter_base_url") or "https://openrouter.ai/api/v1")
+    selected_download_dir = _quickstart_download_dir(download_dir)
+    try:
+        updates = _build_setup_updates(
+            openrouter_api_key=openrouter_api_key,
+            base_url=base_url,
+            download_dir=selected_download_dir,
+        )
+        web_app.persist_runtime_settings(updates, partial=True)
+    except (OSError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    report = _doctor_report()
+    dependency_error = _quickstart_dependency_error(report)
+    if dependency_error:
+        raise click.ClickException(dependency_error)
+
+    host = "127.0.0.1"
+    if not _port_is_available(host, port):
+        suggested_port = port + 1 if port < 65535 else 5657
+        raise click.ClickException(
+            f"端口 {port} 已被占用。请换一个端口，例如 `muku quickstart --port {suggested_port}`。"
+        )
+
+    url = f"http://{host}:{port}"
+    click.echo("Muku quickstart ready")
+    click.echo(f"Settings: {report['settings_path']}")
+    click.echo(f"Download directory: {report['download_dir']}")
+    click.echo(f"Web UI: {url}")
+    click.echo("Cookies are optional for the first run and can be added later for restricted platform content.")
+    click.echo('Next: open the Web UI and try a local audio file or a public video URL.')
+
+    web_app.HOST = host
+    web_app.PORT = port
+    web_app.initialize_web_jobs()
+    if not no_browser:
+        _schedule_browser_open(url)
+    web_app.app.run(host=host, port=port, threaded=True)
 
 
 @main.command("capture")

@@ -30,7 +30,25 @@ Requirements:
 - [ffmpeg](https://ffmpeg.org/)
 - An [OpenRouter](https://openrouter.ai/) API key for transcription and AI processing
 
-Install Muku as an isolated Python tool. No repository checkout or npm installation is required.
+On macOS or Linux, install the CLI and AI-agent Skill with one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku | bash
+muku quickstart
+```
+
+On Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku.ps1 | iex
+muku quickstart
+```
+
+The installer does not create an API key or copy platform cookies. `muku quickstart` securely prompts for
+your OpenRouter key, chooses a local output directory, and starts the local Web UI. If ffmpeg is missing,
+it prints the platform-specific install command.
+
+If you only need the CLI, install Muku as an isolated Python tool. No repository checkout or npm installation is required.
 
 ```bash
 # Choose one
@@ -97,7 +115,8 @@ See [docs/cli.md](docs/cli.md) for the full CLI contract.
 
 ## AI-agent Skill
 
-Install the Muku Python package first, then install the Skill definition:
+The one-command installer above installs both the Muku Python package and the Skill definition. To install
+the Skill separately from a checkout:
 
 ```bash
 git clone https://github.com/qianzhu18/Muku.git

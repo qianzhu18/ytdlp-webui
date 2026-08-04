@@ -26,7 +26,11 @@ Markdown / 正文交给幕库的知识库整理链路或下游知识库。
 ## Fast path
 
 ```bash
-muku setup
+# Human-first local setup
+muku quickstart
+
+# Agent / automation setup
+muku setup --api-key "$OPENROUTER_API_KEY" --json
 muku doctor --json
 muku config --json
 muku capture "https://www.youtube.com/watch?v=..." --knowledge --json
@@ -36,8 +40,9 @@ muku artifacts "/path/to/file.mp3" --json
 muku knowledge "/path/to/file.mp3" --json
 ```
 
-如果 `doctor` 显示四个 AI 阶段尚未配置，先让用户在自己的终端运行 `muku setup`。该命令会隐藏
-OpenRouter API Key 输入，并把同一把 Key 配置给转写、清洗、解析和知识库阶段；不要向用户索要或回显 Key。
+如果是普通用户第一次在本机使用，推荐让用户在自己的终端运行 `muku quickstart`。它会隐藏输入
+OpenRouter API Key，选择默认下载目录并启动本地 Web UI。脚本或 agent 则使用
+`muku setup --api-key ... --json`；不要向用户索要或回显 Key。
 
 ## Routing rules
 

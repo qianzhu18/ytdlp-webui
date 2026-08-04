@@ -13,6 +13,23 @@
 
 ## 安装
 
+如果你是第一次使用，推荐一条命令安装 CLI 和 AI-agent Skill：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku | bash
+muku quickstart
+```
+
+Windows PowerShell：
+
+```powershell
+irm https://raw.githubusercontent.com/qianzhu18/Muku/main/scripts/install-muku.ps1 | iex
+muku quickstart
+```
+
+`muku quickstart` 会复用已经保存的 Key；首次运行只提示输入一次，随后启动绑定到
+`127.0.0.1` 的本地 Web UI。它不会自动创建 API Key、读取平台 Cookies 或运行系统包管理器。
+
 日常使用推荐安装成独立工具。它拥有自己的 Python 环境，可以在任意项目目录调用：
 
 ```bash
@@ -52,6 +69,15 @@ Muku 是 Python 应用，不需要 npm。npm 只适用于用 Node.js 发布和�
 muku setup
 muku doctor --json
 ```
+
+面向普通用户的本地首次运行可以改用：
+
+```bash
+muku quickstart
+```
+
+可选参数：`--api-key`、`--download-dir`、`--port`、`--no-browser`。脚本和 AI agent 继续使用
+`muku setup --json`，以保持非交互和稳定的机器可读输出。
 
 `muku setup` 会隐藏输入的 OpenRouter API Key，并把它复用于转写、清洗、解析和知识库四个阶段。
 如果是脚本或 agent，使用纯 JSON 模式：
@@ -275,6 +301,12 @@ docker compose exec ytdl-webui muku capture URL --knowledge --json
 
 ```bash
 ./scripts/install-muku-skill
+```
+
+如果要同时安装 CLI 和 Skill，直接运行：
+
+```bash
+./scripts/install-muku
 ```
 
 如果你想手动复制：
