@@ -476,6 +476,17 @@ textarea {
   gap: 14px;
 }
 
+.settings-cookie-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 14px 0;
+}
+
+.settings-cookie-actions .field-help {
+  margin: 0;
+}
+
 .settings-cookie-platform {
   display: grid;
   gap: 12px;
@@ -1275,6 +1286,7 @@ body.settings-open .settings-drawer {
   .starter-head,
   .form-actions,
   .settings-actions,
+  .settings-cookie-actions,
   .detail-head {
     flex-direction: column;
     align-items: stretch;

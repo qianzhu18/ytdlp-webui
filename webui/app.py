@@ -1287,6 +1287,96 @@ def platform_auth_verified(platform: str) -> bool:
     return bool(platform_auth_state(platform)["verified"])
 
 
+_PLATFORM_COOKIE_CONFIG: dict[str, dict[str, str]] = {
+    "youtube": {
+        "label": "YouTube",
+        "filename": "youtube.cookies.txt",
+        "path_key": "youtube_cookies_path",
+        "browser_key": "youtube_cookies_from_browser",
+    },
+    "bilibili": {
+        "label": "Bilibili",
+        "filename": "bilibili.cookies.txt",
+        "path_key": "bilibili_cookies_path",
+        "browser_key": "bilibili_cookies_from_browser",
+    },
+    "douyin": {
+        "label": "Douyin",
+        "filename": "douyin.cookies.txt",
+        "path_key": "douyin_cookies_path",
+        "browser_key": "douyin_cookies_from_browser",
+    },
+}
+
+
+def _default_platform_cookie_path(platform: str) -> Path:
+    """Return the shared cookie path used by the local UI and Docker compose."""
+    config = _PLATFORM_COOKIE_CONFIG[platform]
+    configured_path = {
+        "youtube": YOUTUBE_COOKIES_PATH,
+        "bilibili": BILIBILI_COOKIES_PATH,
+        "douyin": DOUYIN_COOKIES_PATH,
+    }[platform]
+    if configured_path:
+        return Path(configured_path).expanduser()
+    root = Path("/cookies") if running_in_container() else REPO_ROOT / "cookies"
+    return root / config["filename"]
+
+
+def _cookie_refresh_inputs(platform: str, payload: dict[str, object] | None = None) -> tuple[Path, str]:
+    payload = payload or {}
+    config = _PLATFORM_COOKIE_CONFIG[platform]
+    default_path = _default_platform_cookie_path(platform)
+    raw_path = str(payload.get("path") or "").strip()
+    raw_browser = str(payload.get("browser") or "").strip()
+    if not raw_path:
+        raw_path = str(default_path)
+    if not raw_browser:
+        raw_browser = {
+            "youtube": YOUTUBE_COOKIES_FROM_BROWSER,
+            "bilibili": BILIBILI_COOKIES_FROM_BROWSER,
+            "douyin": DOUYIN_COOKIES_FROM_BROWSER,
+        }[platform].strip() or os.environ.get("MUKU_REFRESH_BROWSER", "chrome").strip()
+    if not raw_browser:
+        raw_browser = "chrome"
+    try:
+        cookie_path = Path(raw_path).expanduser().resolve()
+        parse_cookies_from_browser_spec(raw_browser)
+    except ValueError as exc:
+        raise ValueError(f"{config['label']} 浏览器配置无效：{exc}") from exc
+    return cookie_path, raw_browser
+
+
+def _apply_refreshed_cookie_config(platform: str, cookie_path: Path, browser_spec: str) -> None:
+    config = _PLATFORM_COOKIE_CONFIG[platform]
+    global COOKIES_PATH
+    global YOUTUBE_COOKIES_PATH, YOUTUBE_COOKIES_FROM_BROWSER
+    global BILIBILI_COOKIES_PATH, BILIBILI_COOKIES_FROM_BROWSER
+    global DOUYIN_COOKIES_PATH, DOUYIN_COOKIES_FROM_BROWSER
+
+    path_value = str(cookie_path)
+    browser_value = browser_spec.strip()
+    if platform == "youtube":
+        YOUTUBE_COOKIES_PATH = path_value
+        YOUTUBE_COOKIES_FROM_BROWSER = browser_value
+    elif platform == "bilibili":
+        BILIBILI_COOKIES_PATH = path_value
+        BILIBILI_COOKIES_FROM_BROWSER = browser_value
+    elif platform == "douyin":
+        DOUYIN_COOKIES_PATH = path_value
+        DOUYIN_COOKIES_FROM_BROWSER = browser_value
+    else:  # pragma: no cover - guarded by _PLATFORM_COOKIE_CONFIG
+        COOKIES_PATH = path_value
+
+    persist_runtime_settings(
+        {
+            config["path_key"]: path_value,
+            config["browser_key"]: browser_value,
+        },
+        partial=True,
+    )
+
+
 def prepare_cookiefile_for_ytdlp(cookiefile: str) -> str:
     source_path = Path(cookiefile).expanduser().resolve()
     if not source_path.exists() or not source_path.is_file():
@@ -1379,9 +1469,10 @@ def humanize_ydlp_error(job: Job, error_message: str) -> str:
     if platform == "YouTube" and "Sign in to confirm you're not a bot" in folded:
         if platform_auth_configured("YouTube"):
             return (
-                "YouTube 当前拒绝了这次下载请求。通常是登录态失效、浏览器没有登录 YouTube，"
-                "或导出的 Cookies 已过期。建议重新登录 YouTube 后，优先在 .env 配置 "
-                "`YOUTUBE_COOKIES_FROM_BROWSER=chrome`，或者重新导出 YouTube 专用 cookies.txt。"
+                "YouTube 当前仍拒绝这次下载请求（bot 校验）。系统已检测到 YouTube Cookies，"
+                "但这不代表该会话已通过 YouTube 风控。请在宿主机 Chrome 打开 YouTube 确认已登录并完成验证，"
+                "然后运行 `./scripts/refresh-cookies youtube`；Docker 模式会自动读取更新后的 "
+                "`/cookies/youtube.cookies.txt`。同时保留默认 `YTDLP_REMOTE_COMPONENTS=ejs:github`。"
             )
         return (
             "YouTube 现在经常会对 yt-dlp 请求做 bot 校验。当前没有检测到可用于 YouTube 的登录态，"
@@ -3302,57 +3393,52 @@ def refresh_platform_auth(platform: str):
     仅本地模式可用；容器内调用返回明确错误，引导用户运行宿主机脚本。
     """
     platform_lower = platform.lower()
-    platform_map = {
-        "bilibili": ("Bilibili", BILIBILI_COOKIES_PATH, BILIBILI_COOKIES_FROM_BROWSER),
-        "douyin": ("Douyin", DOUYIN_COOKIES_PATH, DOUYIN_COOKIES_FROM_BROWSER),
-        "youtube": ("YouTube", YOUTUBE_COOKIES_PATH, YOUTUBE_COOKIES_FROM_BROWSER),
-    }
-    if platform_lower not in platform_map:
+    if platform_lower not in _PLATFORM_COOKIE_CONFIG:
         return jsonify({"error": f"Unsupported platform: {platform}"}), 400
 
-    canonical_name, cookie_path_str, browser_spec_str = platform_map[platform_lower]
+    canonical_name = _PLATFORM_COOKIE_CONFIG[platform_lower]["label"]
 
     if running_in_container():
+        try:
+            cookie_path, _browser_spec = _cookie_refresh_inputs(platform_lower, request.get_json(silent=True) or {})
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        auth_state = platform_auth_state(canonical_name)
+        if cookie_path.exists() and auth_state.get("verified"):
+            return jsonify({
+                "ok": True,
+                "platform": canonical_name,
+                "status": auth_state.get("status"),
+                "detail": auth_state.get("health_detail") or f"已检查挂载 Cookies：{cookie_path}",
+                "auth": auth_state,
+                "mode": "container_check",
+            })
         return jsonify({
             "ok": False,
             "platform": canonical_name,
-            "status": "container_unsupported",
+            "status": "container_cookie_missing",
             "detail": (
-                "Docker 容器无法访问宿主机浏览器的 cookies。"
+                f"容器内没有检测到 {canonical_name} 的可用 Cookies。"
                 "请在宿主机上运行 ./scripts/refresh-cookies "
-                f"{platform_lower}，再回到 webui 重试。"
+                f"{platform_lower}，再刷新页面检查。"
             ),
             "script": f"./scripts/refresh-cookies {platform_lower}",
         }), 400
 
-    if not cookie_path_str:
-        return jsonify({
-            "ok": False,
-            "platform": canonical_name,
-            "status": "missing_config",
-            "detail": (
-                f"未配置 {canonical_name} 专用 cookies 路径。"
-                "请在 .env 设置 *_COOKIES_PATH 后重试。"
-            ),
-        }), 400
-
     try:
-        cookie_path = Path(cookie_path_str).expanduser()
-    except Exception as exc:
-        return jsonify({"error": f"Invalid cookie path: {exc}"}), 400
-
-    browser_spec = None
-    if browser_spec_str:
-        try:
-            browser_spec = parse_cookies_from_browser_spec(browser_spec_str)
-        except Exception as exc:
-            return jsonify({"error": f"Invalid browser spec: {exc}"}), 400
+        cookie_path, browser_spec_text = _cookie_refresh_inputs(platform_lower, request.get_json(silent=True) or {})
+        browser_spec = parse_cookies_from_browser_spec(browser_spec_text)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     result = cookie_health.refresh_platform_cookies(
         canonical_name,
         cookie_path,
         browser_spec=browser_spec,
     )
+
+    if result.ok:
+        _apply_refreshed_cookie_config(platform_lower, cookie_path, browser_spec_text)
 
     auth_state = platform_auth_state(canonical_name)
     return jsonify({
@@ -3363,6 +3449,95 @@ def refresh_platform_auth(platform: str):
         "suggestion": result.suggestion,
         "auth": auth_state,
     })
+
+
+@app.route("/api/auth/refresh-all", methods=["POST"])
+@require_web_token
+def refresh_all_platform_auth():
+    """Refresh YouTube, Bilibili and Douyin cookies in one local action."""
+    if running_in_container():
+        results: dict[str, dict[str, object]] = {}
+        payload = request.get_json(silent=True) or {}
+        platform_payloads = payload.get("platforms") if isinstance(payload, dict) else {}
+        if not isinstance(platform_payloads, dict):
+            platform_payloads = {}
+        for platform, config in _PLATFORM_COOKIE_CONFIG.items():
+            try:
+                options = platform_payloads.get(platform)
+                if not isinstance(options, dict):
+                    options = {}
+                cookie_path, _browser_spec = _cookie_refresh_inputs(platform, options)
+                auth_state = platform_auth_state(config["label"])
+                exists = cookie_path.exists()
+                verified = bool(exists and auth_state.get("verified"))
+                results[platform] = {
+                    "ok": verified,
+                    "platform": config["label"],
+                    "status": auth_state.get("status") if exists else "missing_file",
+                    "detail": (
+                        auth_state.get("health_detail")
+                        or f"已检查挂载 Cookies：{cookie_path}"
+                        if verified
+                        else f"未找到可用 Cookies：{cookie_path}。请先在宿主机运行 ./scripts/refresh-cookies all。"
+                    ),
+                    "suggestion": "" if verified else "宿主机刷新后重新点击此按钮。",
+                    "auth": auth_state,
+                }
+            except ValueError as exc:
+                results[platform] = {
+                    "ok": False,
+                    "platform": config["label"],
+                    "status": "invalid_config",
+                    "detail": str(exc),
+                }
+        ok = all(bool(result.get("ok")) for result in results.values())
+        return jsonify({"ok": ok, "results": results, "mode": "container_check"}), (200 if ok else 207)
+
+    payload = request.get_json(silent=True) or {}
+    platform_payloads = payload.get("platforms") if isinstance(payload, dict) else {}
+    if not isinstance(platform_payloads, dict):
+        platform_payloads = {}
+
+    results: dict[str, dict[str, object]] = {}
+    for platform, config in _PLATFORM_COOKIE_CONFIG.items():
+        try:
+            options = platform_payloads.get(platform)
+            if not isinstance(options, dict):
+                options = {}
+            cookie_path, browser_spec_text = _cookie_refresh_inputs(platform, options)
+            result = cookie_health.refresh_platform_cookies(
+                config["label"],
+                cookie_path,
+                browser_spec=parse_cookies_from_browser_spec(browser_spec_text),
+            )
+            if result.ok:
+                _apply_refreshed_cookie_config(platform, cookie_path, browser_spec_text)
+            auth_state = platform_auth_state(config["label"])
+            results[platform] = {
+                "ok": result.ok,
+                "platform": config["label"],
+                "status": auth_state.get("status"),
+                "detail": result.detail,
+                "suggestion": result.suggestion,
+                "auth": auth_state,
+            }
+        except ValueError as exc:
+            results[platform] = {
+                "ok": False,
+                "platform": config["label"],
+                "status": "invalid_config",
+                "detail": str(exc),
+            }
+        except Exception as exc:  # keep one failing platform from hiding the others
+            results[platform] = {
+                "ok": False,
+                "platform": config["label"],
+                "status": "refresh_failed",
+                "detail": str(exc),
+            }
+
+    ok = all(bool(result.get("ok")) for result in results.values())
+    return jsonify({"ok": ok, "results": results}), (200 if ok else 207)
 
 
 @app.route("/api/tasks")

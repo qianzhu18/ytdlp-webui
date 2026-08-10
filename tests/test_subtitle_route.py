@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import requests
@@ -162,6 +163,64 @@ class SubtitleParsingTests(unittest.TestCase):
     def test_parse_cookies_from_browser_spec_supports_profile(self) -> None:
         parsed = web_app.parse_cookies_from_browser_spec("chrome:Profile 1")
         self.assertEqual(parsed, ("chrome", "Profile 1", None, None))
+
+    def test_cookie_refresh_uses_current_form_values_and_default_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            cookie_path = Path(temp_dir) / "youtube.cookies.txt"
+            health = SimpleNamespace(ok=True, detail="登录态有效", suggestion="")
+            with mock.patch.object(web_app, "running_in_container", return_value=False), mock.patch.object(
+                web_app, "YOUTUBE_COOKIES_PATH", ""
+            ), mock.patch.object(web_app, "YOUTUBE_COOKIES_FROM_BROWSER", ""), mock.patch.object(
+                web_app, "REPO_ROOT", Path(temp_dir)
+            ), mock.patch.object(
+                web_app.cookie_health, "refresh_platform_cookies", return_value=health
+            ) as refresh, mock.patch.object(web_app, "persist_runtime_settings"):
+                with web_app.app.test_client() as client:
+                    response = client.post(
+                        "/api/auth/refresh/youtube",
+                        json={"path": str(cookie_path), "browser": "chrome:Profile 1"},
+                    )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.get_json()["ok"])
+            refresh.assert_called_once()
+            self.assertEqual(refresh.call_args.args[0], "YouTube")
+            self.assertEqual(refresh.call_args.args[1], cookie_path.resolve())
+            self.assertEqual(refresh.call_args.kwargs["browser_spec"], ("chrome", "Profile 1", None, None))
+
+    def test_cookie_refresh_all_keeps_partial_platform_failures_visible(self) -> None:
+        results = [
+            SimpleNamespace(ok=True, detail="YouTube 已更新", suggestion=""),
+            SimpleNamespace(ok=False, detail="Bilibili 未登录", suggestion="重新登录"),
+            SimpleNamespace(ok=True, detail="Douyin 已更新", suggestion=""),
+        ]
+        with mock.patch.object(web_app, "running_in_container", return_value=False), mock.patch.object(
+            web_app.cookie_health, "refresh_platform_cookies", side_effect=results
+        ), mock.patch.object(web_app, "persist_runtime_settings"), mock.patch.object(
+            web_app, "platform_auth_state", return_value={"status": "verified"}
+        ):
+            with web_app.app.test_client() as client:
+                response = client.post("/api/auth/refresh-all", json={"platforms": {}})
+
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 207)
+        self.assertFalse(payload["ok"])
+        self.assertTrue(payload["results"]["youtube"]["ok"])
+        self.assertFalse(payload["results"]["bilibili"]["ok"])
+        self.assertTrue(payload["results"]["douyin"]["ok"])
+
+    def test_cookie_refresh_all_explains_docker_host_bridge(self) -> None:
+        with mock.patch.object(web_app, "running_in_container", return_value=True), mock.patch.object(
+            web_app, "_default_platform_cookie_path", return_value=Path("/tmp/muku-missing-cookie.txt")
+        ), mock.patch.object(web_app, "platform_auth_state", return_value={"verified": False, "status": "missing_file"}):
+            with web_app.app.test_client() as client:
+                response = client.post("/api/auth/refresh-all", json={})
+
+        payload = response.get_json()
+        self.assertEqual(response.status_code, 207)
+        self.assertFalse(payload["ok"])
+        self.assertEqual(set(payload["results"]), {"youtube", "bilibili", "douyin"})
+        self.assertIn("宿主机", payload["results"]["youtube"]["detail"])
 
     def test_platform_auth_state_marks_cookie_file_source_as_verified(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -863,7 +922,7 @@ class SubtitleParsingTests(unittest.TestCase):
         not_bot = web_app.humanize_ydlp_error(job, "Sign in to confirm you’re not a bot")
         format_issue = web_app.humanize_ydlp_error(job, "Requested format is not available")
 
-        self.assertIn("YOUTUBE_COOKIES_FROM_BROWSER", not_bot)
+        self.assertIn("refresh-cookies youtube", not_bot)
         self.assertIn("YTDLP_REMOTE_COMPONENTS", format_issue)
 
     def test_load_subtitle_text_parses_youtube_json3_and_dedupes_lines(self) -> None:

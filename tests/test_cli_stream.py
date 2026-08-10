@@ -1,7 +1,9 @@
 import io
 import json
+import tempfile
 import unittest
 from contextlib import redirect_stdout
+from pathlib import Path
 from unittest import mock
 
 from webui import cli as web_cli
@@ -36,6 +38,49 @@ class ResolveOutputModeTests(unittest.TestCase):
 
     def test_passthrough_text(self) -> None:
         self.assertEqual(web_cli._resolve_output_mode("text", as_json=False, stream=False), "text")
+
+
+class CollectUrlInputsTests(unittest.TestCase):
+    def test_input_file_preserves_supported_and_generic_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            input_file = Path(temp_dir) / "urls.txt"
+            input_file.write_text(
+                "https://www.youtube.com/watch?v=abcdefghijk\n"
+                "https://www.ted.com/talks/example\n",
+                encoding="utf-8",
+            )
+
+            urls = web_cli._collect_url_inputs(
+                values=(),
+                input_file=input_file,
+                stdin_enabled=False,
+            )
+
+        self.assertEqual(
+            urls,
+            (
+                "https://www.youtube.com/watch?v=abcdefghijk",
+                "https://www.ted.com/talks/example",
+            ),
+        )
+
+    def test_multiple_positional_values_are_normalized_independently(self) -> None:
+        urls = web_cli._collect_url_inputs(
+            values=(
+                "https://www.bilibili.com/video/BV1111111111/",
+                "https://vimeo.com/123456789",
+            ),
+            input_file=None,
+            stdin_enabled=False,
+        )
+
+        self.assertEqual(
+            urls,
+            (
+                "https://www.bilibili.com/video/BV1111111111/",
+                "https://vimeo.com/123456789",
+            ),
+        )
 
 
 class FinalizeOutputTests(unittest.TestCase):

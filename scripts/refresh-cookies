@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 从本地浏览器刷新指定平台的 cookies.txt，按平台域名过滤后写入。
-# 用法: ./scripts/refresh-cookies <bilibili|douyin|youtube>
+# 用法: ./scripts/refresh-cookies <bilibili|douyin|youtube|all>
 # 可选环境变量:
 #   MUKU_REFRESH_BROWSER  浏览器名，默认 chrome
 #   MUKU_COOKIES_FILE     输出路径，默认 <repo>/cookies/<platform>.cookies.txt
@@ -8,10 +8,10 @@ set -euo pipefail
 
 PLATFORM="${1:-}"
 case "$PLATFORM" in
-  bilibili|douyin|youtube) ;;
+  bilibili|douyin|youtube|all) ;;
   *)
-    echo "Usage: $0 <bilibili|douyin|youtube>" >&2
-    echo "Example: $0 bilibili" >&2
+    echo "Usage: $0 <bilibili|douyin|youtube|all>" >&2
+    echo "Example: $0 all" >&2
     exit 1
     ;;
 esac
@@ -19,10 +19,22 @@ esac
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd -P)"
 BROWSER="${MUKU_REFRESH_BROWSER:-chrome}"
-COOKIES_FILE="${MUKU_COOKIES_FILE:-${REPO_ROOT}/cookies/${PLATFORM}.cookies.txt}"
+if [[ "$PLATFORM" == "all" ]]; then
+  PLATFORMS=(youtube bilibili douyin)
+else
+  PLATFORMS=("$PLATFORM")
+fi
 
-echo "Extracting ${PLATFORM} cookies from ${BROWSER} -> ${COOKIES_FILE}"
-python3 - <<PYSCRIPT "${PLATFORM}" "${BROWSER}" "${COOKIES_FILE}" "${REPO_ROOT}"
+OVERALL_STATUS=0
+for CURRENT_PLATFORM in "${PLATFORMS[@]}"; do
+  if [[ -n "${MUKU_COOKIES_FILE:-}" && "${PLATFORM}" != "all" ]]; then
+    COOKIES_FILE="${MUKU_COOKIES_FILE}"
+  else
+    COOKIES_FILE="${REPO_ROOT}/cookies/${CURRENT_PLATFORM}.cookies.txt"
+  fi
+
+  echo "Extracting ${CURRENT_PLATFORM} cookies from ${BROWSER} -> ${COOKIES_FILE}"
+  if ! python3 - <<PYSCRIPT "${CURRENT_PLATFORM}" "${BROWSER}" "${COOKIES_FILE}" "${REPO_ROOT}"; then
 import sys
 from pathlib import Path
 
@@ -50,3 +62,8 @@ if result.suggestion:
     print(f"suggestion: {result.suggestion}")
 sys.exit(0 if result.ok else 1)
 PYSCRIPT
+    OVERALL_STATUS=1
+  fi
+done
+
+exit "$OVERALL_STATUS"

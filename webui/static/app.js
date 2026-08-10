@@ -33,6 +33,8 @@ const settingsToggle = document.getElementById("settings-toggle");
 const settingsClose = document.getElementById("settings-close");
 const settingsBackdrop = document.getElementById("settings-backdrop");
 const settingsDrawer = document.getElementById("settings-drawer");
+const settingsCookieRefreshAll = document.getElementById("settings-cookie-refresh-all");
+const settingsCookieRefreshAllHelp = document.getElementById("settings-cookie-refresh-all-help");
 
 const activeCount = document.getElementById("active-count");
 const doneCount = document.getElementById("done-count");
@@ -271,6 +273,46 @@ async function submitDownloadForm(event) {
 }
 
 function bindCookieRefreshButtons() {
+  const cookieRefreshAllLabel = () => config.runtimeEnvironment === "container"
+    ? "检查已挂载 Cookies"
+    : "一键配置本机浏览器 Cookies";
+
+  if (settingsCookieRefreshAll) {
+    settingsCookieRefreshAll.textContent = cookieRefreshAllLabel();
+  }
+
+  const cookieRefreshPayload = (platform) => {
+    const pathInput = platform === "youtube"
+      ? settingsElements.youtubeCookiesPath
+      : platform === "bilibili"
+        ? settingsElements.bilibiliCookiesPath
+        : settingsElements.douyinCookiesPath;
+    const browserInput = platform === "youtube"
+      ? settingsElements.youtubeCookiesFromBrowser
+      : platform === "bilibili"
+        ? settingsElements.bilibiliCookiesFromBrowser
+        : settingsElements.douyinCookiesFromBrowser;
+    return {
+      path: pathInput?.value?.trim() || "",
+      browser: browserInput?.value?.trim() || "",
+    };
+  };
+
+  const refreshSettings = async () => {
+    const settingsRes = await apiFetch("/api/settings");
+    if (!settingsRes.ok) {
+      return;
+    }
+    const settingsData = await settingsRes.json();
+    config.settings = settingsData;
+    syncTopLevelConfig(settingsData);
+    hydrateSettings(settingsData);
+    updatePlatformCookieSettings();
+    updateOverviewSummary();
+    updateCookiesHint();
+    renderStarterGuide();
+  };
+
   document.querySelectorAll(".settings-cookie-refresh").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const platform = btn.dataset.platform;
@@ -284,22 +326,19 @@ function bindCookieRefreshButtons() {
       }
 
       try {
-        const res = await apiFetch(`/api/auth/refresh/${platform}`, { method: "POST" });
+        const res = await apiFetch(`/api/auth/refresh/${platform}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(cookieRefreshPayload(platform)),
+        });
         const data = await res.json().catch(() => ({}));
 
         if (res.ok && data.ok) {
           if (panel?.help) {
             panel.help.textContent = `刷新成功：${data.detail || "已更新"}。`;
           }
-          // 重新拉 settings 同步 auth_state
           try {
-            const settingsRes = await apiFetch("/api/settings");
-            if (settingsRes.ok) {
-              const settingsData = await settingsRes.json();
-              config.settings = settingsData;
-              hydrateSettings(settingsData);
-              updatePlatformCookieSettings();
-            }
+            await refreshSettings();
           } catch (_) {}
         } else {
           const msg = data.detail || data.error || "刷新失败。";
@@ -325,6 +364,51 @@ function bindCookieRefreshButtons() {
         btn.textContent = originalText;
       }
     });
+  });
+
+  settingsCookieRefreshAll?.addEventListener("click", async () => {
+    settingsCookieRefreshAll.disabled = true;
+    settingsCookieRefreshAll.textContent = "配置中...";
+    if (settingsCookieRefreshAllHelp) {
+      settingsCookieRefreshAllHelp.textContent = "正在从浏览器提取并验证 YouTube、Bilibili、Douyin Cookies...";
+    }
+    try {
+      const platforms = ["youtube", "bilibili", "douyin"];
+      const res = await apiFetch("/api/auth/refresh-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          platforms: Object.fromEntries(platforms.map((platform) => [platform, cookieRefreshPayload(platform)])),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok || res.status === 207) {
+        const results = data.results || {};
+        Object.entries(results).forEach(([platform, result]) => {
+          const panel = platformCookiePanels[platform];
+          if (panel?.help) {
+            panel.help.textContent = result.ok
+              ? `配置成功：${result.detail || "登录态有效"}。`
+              : `${result.detail || "配置失败"}${result.suggestion ? ` ${result.suggestion}` : ""}`;
+          }
+        });
+        if (settingsCookieRefreshAllHelp) {
+          const passed = Object.values(results).filter((result) => result.ok).length;
+          settingsCookieRefreshAllHelp.textContent = `已完成 ${passed}/${Object.keys(results).length || 3} 个平台。`;
+        }
+        await refreshSettings();
+      } else {
+        const hint = data.script ? ` 请在宿主机运行：${data.script}` : "";
+        throw new Error(`${data.detail || data.error || `HTTP ${res.status}`}${hint}`);
+      }
+    } catch (err) {
+      if (settingsCookieRefreshAllHelp) {
+        settingsCookieRefreshAllHelp.textContent = `配置失败：${err?.message || err}`;
+      }
+    } finally {
+      settingsCookieRefreshAll.disabled = false;
+      settingsCookieRefreshAll.textContent = cookieRefreshAllLabel();
+    }
   });
 }
 

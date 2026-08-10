@@ -1,25 +1,35 @@
-# 幕库 Muku
+# 幕库 Muku：1800+ 视频站，一条链接变知识库
 
 [English](https://github.com/qianzhu18/Muku/blob/main/README_EN.md) | 简体中文
 
-> 把 Bilibili、YouTube、Douyin 等知识视频和本地音频，转换成可检索、可连接、可被 AI 持续使用的 Markdown 知识库。
+> **1800+ 视频站解析入口。** 一条链接，收进你的 Markdown 知识库。
 
 [![PyPI](https://img.shields.io/pypi/v/muku?label=PyPI&color=3775A9)](https://pypi.org/project/muku/)
 [![Python](https://img.shields.io/pypi/pyversions/muku)](https://pypi.org/project/muku/)
 [![CI](https://github.com/qianzhu18/Muku/actions/workflows/ci.yml/badge.svg)](https://github.com/qianzhu18/Muku/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/qianzhu18/Muku)](https://github.com/qianzhu18/Muku/blob/main/LICENSE)
+[![yt-dlp](https://img.shields.io/badge/yt--dlp-1800%2B_extractors-FF0000)](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 
-幕库不是“把视频下载下来就结束”的通用下载器。它关注的是从链接或音频到知识资产的完整链路：优先提取平台字幕，必要时回退音频转写，然后生成逐字稿、解析稿、知识库稿和可追踪的元数据。
+幕库接入了 [yt-dlp 的 1800+ 站点解析能力](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)，主打 Bilibili、YouTube、Douyin，也能接收其他 yt-dlp 可解析站点的完整视频链接。只要能取得字幕或音频，后面的转写、清洗、解析和知识库整理就可以继续跑下去。
 
-项目提供四种入口：`CLI`、`Web UI`、`Docker` 和可供 Codex 等 AI agent 使用的 `Skill`。
+它不是“把视频下载下来就结束”的通用下载器，而是一条从视频链接到知识资产的完整链路：优先提取平台字幕，必要时回退音频转写，然后生成逐字稿、解析稿、知识库稿和可追踪的元数据。
+
+| 1800+ | 1 条链接 → 4 类知识资产 | 4 种使用入口 |
+| --- | --- | --- |
+| 接入 yt-dlp 解析器生态 | 逐字稿、清洗稿、解析稿、知识库稿 | CLI、Web UI、Docker、AI-agent Skill |
+
+> [!IMPORTANT]
+> `1800+` 指 yt-dlp 当前提供的解析器范围，不代表 Muku 已逐站、逐链接人工验证。站点改版、登录态、地区、网络与 DRM 都可能影响结果；最可靠的判断方式仍然是用自己的真实链接跑一次。
 
 ## 为什么用幕库
 
+- **1800+ 视频站入口**：不只写死三个平台；完整 URL 会先进入 yt-dlp 解析链路
 - **Video-to-Markdown**：最终产物是适合 Obsidian、Git、全文检索、RAG 和 agent 工作流的 Markdown
 - **字幕优先，转写兜底**：能拿平台字幕时避免重复转写；模型拒绝音频时自动回退，不制造假成功
 - **本地优先**：文件、配置和知识资产保存在自己的电脑或自托管环境
 - **批量与断点续跑**：支持 URL 文件、标准输入、并发、checkpoint、`--resume` 和 NDJSON 进度
 - **面向自动化**：CLI 支持稳定 JSON 和纯路径输出，Skill 不需要驱动网页表单
+- **可以继续长出来**：字幕、转写、清洗、解析和知识库生成被拆成独立环节，方便继续接平台、模型与输出模板
 - **跨平台交付**：PyPI wheel 在 Ubuntu、macOS、Windows 上持续验证
 
 ## 60 秒开始
@@ -124,7 +134,10 @@ Copy-Item .env.example .env
 docker compose up -d --build
 ```
 
-访问 `http://localhost:5657`，在右上角设置中填写 Key、下载目录和平台 Cookies。下载产物默认保存在 `./docker-data/downloads`，配置保存在 `./docker-data/config`。
+访问 `http://localhost:5657`，在右上角设置中填写 Key 和下载目录。先在宿主机浏览器登录 YouTube、Bilibili、Douyin，再运行
+`./scripts/refresh-cookies all`；回到设置页点击“检查 Cookies”即可。纯本地 Python 运行时可以直接点击“一键配置本机浏览器 Cookies”。下载产物默认保存在 `./docker-data/downloads`，配置保存在 `./docker-data/config`。
+
+本地运行的 Web UI 会自动把浏览器登录态按平台过滤并写入 `cookies/`；Docker 不会越权读取宿主机浏览器数据库，只会检查挂载到 `/cookies` 的文件。
 
 更完整的容器说明见 [Docker 部署指南](https://github.com/qianzhu18/Muku/blob/main/docs/docker-deployment.md)。Web 面板适合个人、本地或可信网络，不建议直接暴露为公网多人服务。
 
@@ -145,17 +158,22 @@ flowchart LR
     I --> J[本地 Markdown + metadata]
 ```
 
-## 平台支持
+## 1800+ 站点支持范围
 
-| 平台 | 输入 | 推荐认证 | 说明 |
+| 支持级别 | 平台 / 输入 | 推荐认证 | 说明 |
 | --- | --- | --- | --- |
-| Bilibili | 视频页、分享链接 | `BILIBILI_COOKIES_PATH` | 字幕与高知识密度内容是主要场景 |
-| YouTube | 视频页、分享链接 | `YOUTUBE_COOKIES_PATH` | 字幕优先；部分视频需要登录态 |
-| Douyin | 分享链接、分享文案 | `DOUYIN_COOKIES_PATH` | 适合短视频观点和素材沉淀 |
-| 其他 yt-dlp 平台 | 完整 URL | `COOKIES_PATH` | 能力取决于 yt-dlp 对目标站点的支持 |
-| 本地音频 | MP3、M4A、WAV 等 | 不需要平台 Cookies | 直接进入音频转写链路 |
+| ✅ 主链路适配 | Bilibili 视频页、分享链接 | `BILIBILI_COOKIES_PATH` | 字幕与高知识密度内容是主要场景 |
+| ✅ 主链路适配 | YouTube 视频页、分享链接 | `YOUTUBE_COOKIES_PATH` | 字幕优先；部分视频需要登录态 |
+| ✅ 主链路适配 | Douyin 分享链接、分享文案 | `DOUYIN_COOKIES_PATH` | 适合短视频观点和素材沉淀 |
+| 🧩 基础兼容 | yt-dlp 1800+ 解析器生态中的其他站点完整 URL | `COOKIES_PATH` | 能否处理取决于 yt-dlp、目标站点与当前环境；请用真实链接验证 |
+| 🎧 本地输入 | MP3、M4A、WAV 等 | 不需要平台 Cookies | 直接进入音频转写链路 |
 
-平台策略会随站点规则变化。请先运行 `muku doctor --json`，再用一条真实链接验证自己的登录态和网络环境。
+这 1800+ 个解析器不是 1800+ 份硬编码适配。Muku 复用 yt-dlp 持续维护的站点生态，再把拿到的字幕或音频接进自己的知识处理链路。
+
+- 免费公开内容通常最容易处理
+- 登录后内容可能需要平台 Cookies
+- VIP、DRM、加密 App 内视频和站点风控不在绕过范围内
+- 平台策略会变化；请先运行 `muku doctor --json`，再用一条真实链接验证登录态和网络环境
 
 ## 批量任务
 
@@ -212,6 +230,17 @@ cd Muku
 | PyPI | Trusted Publishing、独立安装烟测 |
 
 “CI 通过”不代表所有平台链接永远可下载。视频站点的风控、Cookies、地区和网络状态仍会影响真实任务。
+
+## 仍在快速迭代
+
+Muku 现在是一个能跑起来的 `v0.x`，不是已经封死的最终形态。当前先把“视频输入 → 字幕 / 转写 → Markdown 知识资产”这条主链路做顺，后续仍可以继续扩展：
+
+- 更多平台的专用解析与登录态体验
+- 更多模型、提示词和 Markdown 输出模板
+- 更顺手的批量采集、创作者主页与系列处理
+- 更轻量的桌面端、浏览器与 agent 入口
+
+想要的能力可以直接提交 [Issue](https://github.com/qianzhu18/Muku/issues)，也可以查看现有的 [输入扩展路线](https://github.com/qianzhu18/Muku/blob/main/docs/input-expansion-roadmap.md)。框架可以继续长，但判断是否支持某条视频，永远以真实链接跑通为准。
 
 ## 开发
 

@@ -150,10 +150,28 @@ DOCKER_DOUYIN_COOKIES_PATH=/cookies/douyin.cookies.txt
 
 ### 怎么拿到可用的 `cookies.txt`
 
-推荐按平台分别准备：
+推荐先在宿主机浏览器登录三个平台，然后直接运行仓库自带的一键刷新脚本：
+
+```bash
+./scripts/refresh-cookies all
+```
+
+脚本会按平台域名过滤浏览器登录态，写入 `./cookies/youtube.cookies.txt`、
+`./cookies/bilibili.cookies.txt` 和 `./cookies/douyin.cookies.txt`，失败的平台不会阻止其他平台继续刷新。
+刷新后回到 Web UI，点击“检查 Cookies”即可看到最新状态。
+
+也可以按平台单独刷新：
+
+```bash
+./scripts/refresh-cookies youtube
+./scripts/refresh-cookies bilibili
+./scripts/refresh-cookies douyin
+```
+
+推荐按平台分别准备时，步骤如下：
 
 1. 先在浏览器登录 YouTube / Bilibili / Douyin
-2. 用任意支持导出 Netscape `cookies.txt` 的浏览器扩展或导出工具分别导出
+2. 如果不使用脚本，用任意支持导出 Netscape `cookies.txt` 的浏览器扩展或导出工具分别导出
 3. 保存到仓库 `./cookies/` 目录，文件名分别是：
    - `youtube.cookies.txt`
    - `bilibili.cookies.txt`

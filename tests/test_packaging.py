@@ -82,6 +82,24 @@ class InstallerPolicyTests(unittest.TestCase):
         self.assertIn("muku-video-to-md", script)
         self.assertIn("MUKU_REPO_BRANCH", script)
 
+    def test_dockerfile_falls_back_when_mirrors_resolve_but_requests_fail(self) -> None:
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+        self.assertIn("if ! apt-get update", dockerfile)
+        self.assertIn("configure_apt_mirror \"${APT_MIRROR_FALLBACK}\"", dockerfile)
+        self.assertIn("if ! pip install --no-cache-dir -r requirements.txt", dockerfile)
+        self.assertIn('PIP_URL="${PIP_INDEX_URL_FALLBACK}"', dockerfile)
+        self.assertIn('pip install --no-cache-dir -r requirements.txt -i "$PIP_URL"', dockerfile)
+        self.assertIn('PIP_INDEX_URL="$PIP_URL" pip install --no-cache-dir --no-deps .', dockerfile)
+        self.assertIn("ARG DENO_VERSION=2.8.1", dockerfile)
+        self.assertIn('"${DENO_BASE}.zip.sha256sum"', dockerfile)
+        self.assertIn('sha256sum -c -', dockerfile)
+
+    def test_requirements_install_yt_dlp_ejs_runtime_support(self) -> None:
+        requirements = (REPO_ROOT / "requirements.txt").read_text(encoding="utf-8")
+
+        self.assertIn("yt-dlp[default]", requirements)
+
 
 class QuickstartTests(unittest.TestCase):
     def _ready_report(self, *, ffmpeg_found: bool = True, yt_dlp_found: bool = True) -> dict[str, object]:

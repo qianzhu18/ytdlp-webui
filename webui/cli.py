@@ -96,6 +96,8 @@ def _doctor_report() -> dict[str, object]:
     settings = web_app.current_runtime_settings()
     ffmpeg_available = shutil.which(web_app.FFMPEG_BIN) is not None
     yt_dlp_available = getattr(web_app, "yt_dlp", None) is not None
+    js_runtime_candidates = ("deno", "node", "bun", "qjs")
+    js_runtime_path = next((shutil.which(name) for name in js_runtime_candidates if shutil.which(name)), None)
     return {
         "settings_path": settings["settings_path"],
         "settings_dir": settings["settings_dir"],
@@ -106,6 +108,8 @@ def _doctor_report() -> dict[str, object]:
         "ffmpeg_bin": web_app.FFMPEG_BIN,
         "ffmpeg_found": ffmpeg_available,
         "yt_dlp_found": yt_dlp_available,
+        "js_runtime": js_runtime_path,
+        "js_runtime_found": bool(js_runtime_path),
         "transcript_route_strategy": "subtitle_first_then_audio_fallback",
         "subtitle_auth": subtitle_auth,
         "subtitle_auth_configured": bool(subtitle_auth["configured"]),
@@ -186,6 +190,11 @@ def _doctor_next_steps(report: dict[str, object]) -> list[str]:
         steps.append(f"Install ffmpeg or point FFMPEG_BIN to the executable. Current value: {report['ffmpeg_bin']}")
     if not report["yt_dlp_found"]:
         steps.append("Install the yt-dlp Python dependency in the same environment as Muku.")
+    if not report["js_runtime_found"]:
+        steps.append(
+            "YouTube full video downloads need a JavaScript runtime (Deno recommended). "
+            "Rebuild the Docker image or install deno/node in the same environment as Muku."
+        )
     if report["transcription_enabled"] and not report["openrouter_key_configured"]:
         steps.append("Run `muku setup` or configure OPENROUTER_API_KEY, then run `muku doctor --json` again.")
     if report["cleanup_enabled"] and not report["cleanup_key_configured"]:
@@ -261,6 +270,7 @@ def _format_doctor_report(report: dict[str, object]) -> str:
         "Dependencies",
         f"- ffmpeg: {_status_label(bool(report['ffmpeg_found']))} ({report['ffmpeg_bin']})",
         f"- yt-dlp: {_status_label(bool(report['yt_dlp_found']))}",
+        f"- JavaScript runtime: {_status_label(bool(report['js_runtime_found']))} ({report['js_runtime'] or 'deno/node/bun/qjs not found'})",
         "",
         "AI services",
         (
@@ -429,13 +439,22 @@ def _collect_url_inputs(
     raw_blocks = [value for value in values if value.strip()]
 
     if input_file is not None:
-        raw_blocks.append(input_file.expanduser().read_text(encoding="utf-8"))
+        raw_blocks.extend(
+            line.strip()
+            for line in input_file.expanduser().read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
 
     if stdin_enabled:
-        raw_blocks.append(click.get_text_stream("stdin").read())
+        raw_blocks.extend(
+            line.strip()
+            for line in click.get_text_stream("stdin").read().splitlines()
+            if line.strip()
+        )
 
-    merged_text = "\n".join(block for block in raw_blocks if block.strip())
-    normalized = web_app.collect_url_inputs(merged_text)
+    normalized: list[str] = []
+    for block in raw_blocks:
+        normalized.extend(web_app.collect_url_inputs(block))
 
     deduped: list[str] = []
     seen: set[str] = set()
@@ -446,7 +465,9 @@ def _collect_url_inputs(
         seen.add(item)
 
     if not deduped:
-        raise click.ClickException("没有识别到可用链接。支持直接粘贴 URL，或粘贴 Bilibili / YouTube / Douyin 分享文案。")
+        raise click.ClickException(
+            "没有识别到可用链接。支持完整视频 URL，或 Bilibili / YouTube / Douyin 分享文案。"
+        )
 
     return tuple(deduped)
 
